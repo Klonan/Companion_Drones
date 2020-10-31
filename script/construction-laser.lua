@@ -1,4 +1,4 @@
-
+local util = require("util")
 local on_robot_built_entity = function(event)
   local robot = event.robot
   if not (robot and robot.valid) then return end
@@ -9,7 +9,8 @@ local on_robot_built_entity = function(event)
 
   local source = robot.logistic_network.cells[1].owner
 
-  robot.surface.create_entity{name = "companion-build-beam", position = robot.position, target_position = entity.position, source = source, force = robot.force, source_offset = {0, -0.5}, duration = 32}
+  local duration = math.ceil((util.distance(source.position, entity.position) / 0.3) * 0.9)
+  robot.surface.create_entity{name = "companion-build-beam", position = robot.position, target_position = entity.position, source = source, force = robot.force, source_offset = {0, -0.5}, duration = duration}
 
   if source.type == "spider-vehicle" then
     source.autopilot_destination =
@@ -30,8 +31,8 @@ local on_robot_mined_entity = function(event)
   if not (entity and entity.valid) then return end
 
   local source = robot.logistic_network.cells[1].owner
-
-  robot.surface.create_entity{name = "companion-deconstruct-beam", position = robot.position, target_position = entity.position, source = source, force = robot.force, source_offset = {0, -0.5}, duration = 32}
+  local duration = math.ceil((util.distance(source.position, entity.position) / 0.2) / 2)
+  robot.surface.create_entity{name = "companion-deconstruct-beam", position = robot.position, target_position = entity.position, source = source, force = robot.force, source_offset = {0, -0.5}, duration = duration}
   robot.surface.play_sound{position = robot.position, path = "utility/drop_item"}
 
   if source.type == "spider-vehicle" then

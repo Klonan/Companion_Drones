@@ -1,7 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 1
+bot.speed = 0.3
+bot.max_speed = 0.3
 bot.max_energy = "1000MJ"
 bot.energy_per_tick = "1J"
 bot.speed_multiplier_when_out_of_energy = 1
@@ -25,6 +26,8 @@ bot.shadow_in_motion = util.empty_sprite()
 bot.shadow_in_motion_with_cargo = util.empty_sprite()
 bot.working = util.empty_sprite()
 bot.shadow_working = util.empty_sprite()
+bot.sparks = util.empty_sprite()
+bot.smoke = nil
 
 local bot_item =
 {
@@ -120,7 +123,7 @@ deconstruct_beam.name = "companion-deconstruct-beam"
 deconstruct_beam.action = nil
 attach_beam_graphics(deconstruct_beam, nil, nil, {1, 0, 0}, {1, 0, 0})
 
-local scale = 1
+local scale = 0.6
 local leg_scale = 1
 local arguments = {name = "spidertron"}
 local drone =
@@ -215,11 +218,11 @@ local drone =
   inventory_size = 10,
   equipment_grid = "spidertron-equipment-grid",
   trash_inventory_size = 0,
-  height = 1,
+  height = 3,
   torso_rotation_speed = 0.05,
   chunk_exploration_radius = 3,
   selection_priority = 51,
-  graphics_set = spidertron_torso_graphics_set(1),
+  graphics_set = spidertron_torso_graphics_set(0.6),
   base_render_layer = "smoke",
   render_layer = "air-object",
   energy_source =
@@ -235,11 +238,11 @@ local drone =
     {
       { -- 1
         leg = "companion-leg",
-        mount_position = {0,0},
-        ground_position = {0,0},
+        mount_position = {0, 0},
+        ground_position = {0, 0},
         blocking_legs = {},
         leg_hit_the_ground_trigger = nil
-      },
+      }
     },
     military_target = "spidertron-military-target"
   }
@@ -253,19 +256,20 @@ local leg =
   name = "companion-leg",
 
   localised_name = {"entity-name.spidertron-leg"},
-  collision_box = {{-0.0, -0.0}, {0.0, 0.0}},
+  collision_box = {{-0, -0}, {0, 0}},
+  collision_mask = {},
   selection_box = {{-0, -0}, {0, 0}},
   icon = "__base__/graphics/icons/spidertron.png",
   icon_size = 64, icon_mipmaps = 4,
   walking_sound_volume_modifier = 0,
-  target_position_randomisation_distance = 0.25 * scale,
-  minimal_step_size = 1 * scale,
+  target_position_randomisation_distance = 0,
+  minimal_step_size = 0,
   working_sound = nil,
-  part_length = 1,
+  part_length = 1.5,
   initial_movement_speed = 1,
   movement_acceleration = 1,
   max_health = 100,
-  movement_based_position_selection_distance = 1,
+  movement_based_position_selection_distance = 3,
   selectable_in_game = false,
   graphics_set = create_spidertron_leg_graphics_set(0, 1)
 }
