@@ -1,0 +1,11 @@
+{
+  "name": "Companion_Drones",
+  "version": "1.0.0",
+  "title": "Companion Drones",
+  "author": "Klonan",
+  "contact": "",
+  "homepage": "",
+  "description": "Adds friends",
+  "dependencies": ["base >= 1.1.0"],
+  "factorio_version": "1.1"
+}
