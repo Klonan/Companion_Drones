@@ -234,12 +234,12 @@ local drone =
     legs =
     {
       { -- 1
-      leg = "companion-leg",
-      mount_position = util.by_pixel(15  * scale, -22 * scale),--{0.5, -0.75},
-      ground_position = {2.25  * leg_scale, -2.5  * leg_scale},
-      blocking_legs = {},
-      leg_hit_the_ground_trigger = nil
-    },
+        leg = "companion-leg",
+        mount_position = {0,0},
+        ground_position = {0,0},
+        blocking_legs = {},
+        leg_hit_the_ground_trigger = nil
+      },
     },
     military_target = "spidertron-military-target"
   }

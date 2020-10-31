@@ -11,6 +11,14 @@ local on_robot_built_entity = function(event)
 
   robot.surface.create_entity{name = "companion-build-beam", position = robot.position, target_position = entity.position, source = source, force = robot.force, source_offset = {0, -0.5}, duration = 32}
 
+  if source.type == "spider-vehicle" then
+    source.autopilot_destination =
+    {
+      (robot.position.x + source.position.x) / 2,
+      (robot.position.y + source.position.y) / 2
+    }
+  end
+
 end
 
 local on_robot_mined_entity = function(event)
@@ -25,6 +33,15 @@ local on_robot_mined_entity = function(event)
 
   robot.surface.create_entity{name = "companion-deconstruct-beam", position = robot.position, target_position = entity.position, source = source, force = robot.force, source_offset = {0, -0.5}, duration = 32}
   robot.surface.play_sound{position = robot.position, path = "utility/drop_item"}
+
+  if source.type == "spider-vehicle" then
+    source.autopilot_destination =
+    {
+      (robot.position.x + source.position.x) / 2,
+      (robot.position.y + source.position.y) / 2
+    }
+  end
+
 end
 
 local spider_to_build = {}
