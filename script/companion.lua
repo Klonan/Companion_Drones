@@ -81,14 +81,22 @@ function Companion:check_robots()
 
 end
 
+function Companion:is_full()
+  local stack = self:get_stack()
+  if not (stack and stack.valid_for_read) then return end
+  return stack.count == stack.prototype.stack_size
+end
+
 function Companion:update()
   if self.flagged_for_equipment_changed then
     self.flagged_for_equipment_changed = nil
     self:check_robots()
   end
 
-  if not self:is_busy() then
+  if self:is_full() or not self:is_busy() then
     self:return_to_player()
+  else
+    self:schedule_tick_update(61)
   end
 
 end
@@ -196,6 +204,27 @@ function Companion:on_robot_pre_mined(event)
 
 end
 
+function Companion:get_stack()
+  return self.entity.get_inventory(defines.inventory.spider_trunk)[1]
+end
+
+function Companion:try_to_shove_inventory()
+  local stack = self:get_stack()
+  if not (stack and stack.valid_for_read) then return end
+  local inserted = self.player.insert(stack)
+  if inserted == 0 then
+    self.player.print({"inventory-restriction.player-inventory-full", stack.prototype.localised_name, {"inventory-full-message.main"}})
+    return
+  end
+
+  if inserted == stack.count then
+    stack.clear()
+    return
+  end
+
+  stack.count = stack.count - inserted
+end
+
 function Companion:return_to_player()
   if not self.player.valid then return end
 
@@ -204,6 +233,12 @@ function Companion:return_to_player()
 
   local walking_state = self.player.walking_state
 
+
+  if self:distance(target_position) > 5 then
+    self.entity.autopilot_destination = target_position
+    self:schedule_tick_update(math.random(60,100))
+    return
+  end
 
   if walking_state.walking then
     local orientation = walking_state.direction / 8
@@ -217,12 +252,11 @@ function Companion:return_to_player()
     target_position.y = target_position.y + offset_y + rotated_y
     self.entity.autopilot_destination = target_position
     self:schedule_tick_update(math.random(21,42))
-  elseif self:distance(target_position) > 5 then
-    self.entity.autopilot_destination = target_position
-    self:schedule_tick_update(math.random(60,100))
   else
     self:schedule_tick_update(math.random(30, 60))
   end
+
+  self:try_to_shove_inventory()
 
 end
 
@@ -237,7 +271,7 @@ end
 
 function Companion:on_spider_command_completed()
 
-  if self:is_busy() then return end
+  if not self:is_full() and self:is_busy() then return end
 
   self:return_to_player()
 
