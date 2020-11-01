@@ -140,7 +140,7 @@ function Companion:on_robot_built_entity(event)
   if not (entity and entity.valid) then return end
 
   local distance = self:distance(entity.position)
-  local duration = math.ceil((distance / 0.4) * 0.9)
+  local duration = math.ceil((distance / 0.5) * 0.9)
   self.entity.surface.create_entity{name = "companion-build-beam", position = self.entity.position, target = entity, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration}
 
   if distance > 5 then
@@ -154,13 +154,34 @@ function Companion:on_robot_built_entity(event)
 
 end
 
-function Companion:on_robot_mined_entity(event)
+function Companion:on_robot_built_tile(event)
 
+  local tiles = event.tiles
+  if not tiles and tiles[1] then return end
+
+  local distance = self:distance(tiles[1].position)
+  local duration = math.ceil((distance / 0.5) * 0.9)
+  for k, tile in pairs (tiles) do
+    self.entity.surface.create_entity{name = "companion-build-beam", position = self.entity.position, target_position = tile.position, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration}
+  end
+
+  if distance > 5 then
+    self.entity.autopilot_destination =
+    {
+      (tiles[1].position.x + self.entity.position.x) / 2,
+      (tiles[1].position.y + self.entity.position.y) / 2
+    }
+  end
+  self:schedule_tick_update((duration * 2) + 100)
+
+end
+
+function Companion:on_robot_pre_mined(event)
   local entity = event.entity
   if not (entity and entity.valid) then return end
 
   local distance = self:distance(entity.position)
-  local duration = math.ceil((distance / 0.4) * 0.9)
+  local duration = math.ceil((distance / 0.5) * 0.9)
   self.entity.surface.create_entity{name = "companion-deconstruct-beam", position = self.entity.position, target_position = entity.position, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration}
   self.entity.surface.play_sound{position = self.entity.position, path = "utility/drop_item"}
 
@@ -285,7 +306,7 @@ local on_tick = function(event)
   script_data.tick_updates[event.tick] = nil
 end
 
-local on_robot_mined_entity = function(event)
+local on_robot_pre_mined = function(event)
   local robot = event.robot
   if not (robot and robot.valid) then return end
   if robot.name ~= "companion-construction-robot" then return end
@@ -297,7 +318,7 @@ local on_robot_mined_entity = function(event)
     return
   end
 
-  companion:on_robot_mined_entity(event)
+  companion:on_robot_pre_mined(event)
 
 end
 
@@ -317,6 +338,23 @@ local on_robot_built_entity = function(event)
 
 end
 
+local on_robot_built_tile = function(event)
+
+  local robot = event.robot
+  if not (robot and robot.valid) then return end
+  if robot.name ~= "companion-construction-robot" then return end
+
+  local source = robot.logistic_network.cells[1].owner
+  local companion = get_companion(source.unit_number)
+  if not companion then
+    robot.destroy()
+    return
+  end
+
+  companion:on_robot_built_tile(event)
+
+end
+
 local on_spider_command_completed = function(event)
   local spider = event.vehicle
   local companion = get_companion(spider.unit_number)
@@ -333,8 +371,9 @@ lib.events =
   --[defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   --[defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_tick] = on_tick,
-  [defines.events.on_robot_mined_entity] = on_robot_mined_entity,
+  [defines.events.on_robot_pre_mined] = on_robot_pre_mined,
   [defines.events.on_robot_built_entity] = on_robot_built_entity,
+  [defines.events.on_robot_built_tile] = on_robot_built_tile,
   [defines.events.on_spider_command_completed] = on_spider_command_completed,
 }
 
