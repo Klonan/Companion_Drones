@@ -1,8 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.3
-bot.max_speed = 0.3
+bot.speed = 0.4
+bot.max_speed = 0.4
 bot.max_energy = "1000MJ"
 bot.energy_per_tick = "1J"
 bot.speed_multiplier_when_out_of_energy = 1
@@ -71,8 +71,8 @@ local equipment =
 
   charging_energy = "0kW",
 
-  robot_limit = 10,
-  construction_radius = 100,
+  robot_limit = 1,
+  construction_radius = 8,
   spawn_and_station_height = 0,
   spawn_and_station_shadow_height_offset = 0,
   charge_approach_distance = -0.6,
@@ -218,7 +218,7 @@ local drone =
   inventory_size = 10,
   equipment_grid = "spidertron-equipment-grid",
   trash_inventory_size = 0,
-  height = 3,
+  height = 2,
   torso_rotation_speed = 0.05,
   chunk_exploration_radius = 3,
   selection_priority = 51,
@@ -248,7 +248,31 @@ local drone =
   }
 }
 drone.graphics_set.render_layer = "air-object"
-drone.graphics_set.base_render_layer = "air-object"
+drone.graphics_set.base_render_layer = "explosion"
+drone.graphics_set.light =
+{
+  {
+    type = "oriented",
+    minimum_darkness = 0.3,
+    picture =
+    {
+      filename = "__core__/graphics/light-cone.png",
+      priority = "extra-high",
+      flags = { "light" },
+      scale = 1,
+      width = 200,
+      height = 200,
+      shift = {0, -1}
+    },
+    source_orientation_offset = 0,
+    shift = {0, (-200/32)- 0.5},
+    add_perspective = false,
+    size = 2,
+    intensity = 0.6,
+    color = {r = 0.92, g = 0.77, b = 0.3}
+  }
+}
+drone.graphics_set.eye_light.size = 0
 
 local leg =
 {
@@ -274,6 +298,54 @@ local leg =
   graphics_set = create_spidertron_leg_graphics_set(0, 1)
 }
 
+local layers = drone.graphics_set.base_animation.layers
+for k, layer in pairs (layers) do
+  layer.repeat_count = 8
+  layer.hr_version.repeat_count = 8
+end
+
+table.insert(layers, 1,
+{
+  filename = "__base__/graphics/entity/rocket-silo/10-jet-flame.png",
+  priority = "medium",
+  blend_mode = "additive",
+  draw_as_glow = true,
+  width = 87,
+  height = 128,
+  frame_count = 8,
+  line_length = 8,
+  animation_speed = 0.5,
+  scale = 1.13/4,
+  shift = util.by_pixel(-0.5, 20),
+  direction_count = 1,
+  hr_version = {
+    filename = "__base__/graphics/entity/rocket-silo/hr-10-jet-flame.png",
+    priority = "medium",
+    blend_mode = "additive",
+    draw_as_glow = true,
+    width = 172,
+    height = 256,
+    frame_count = 8,
+    line_length = 8,
+    animation_speed = 0.5,
+    scale = 1.13/8,
+    shift = util.by_pixel(-1, 20),
+    direction_count = 1,
+  }
+})
+
+local drone_item =
+{
+  type = "item",
+  name = "companion",
+  icon = "__base__/graphics/icons/personal-roboport-equipment.png",
+  icon_size = 64, icon_mipmaps = 4,
+  subgroup = "equipment",
+  order = "e[robotics]-a[personal-roboport-equipment]",
+  stack_size = 20,
+  place_result = "companion"
+}
+
 data:extend
 {
   bot,
@@ -283,5 +355,6 @@ data:extend
   build_beam,
   deconstruct_beam,
   drone,
+  drone_item,
   leg
 }
