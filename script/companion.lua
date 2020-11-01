@@ -23,10 +23,27 @@ Companion.new = function(entity, player)
   script_data.companions[entity.unit_number] = companion
   script.register_on_entity_destroyed(entity)
   companion:say("I love you!")
+  entity.operable = false
+  entity.minable = false
+  local grid = companion:get_grid()
+  grid.put{name = "companion-roboport-equipment"}
+  companion.flagged_for_equipment_changed = true
+  companion:schedule_tick_update(1)
+  companion:add_passengers()
+
 end
 
 function Companion:get_grid()
   return self.entity.grid
+end
+
+function Companion:add_passengers()
+  local driver = self.entity.surface.create_entity{name = "character", position = self.entity.position, force = self.entity.force}
+  self.entity.set_driver(driver)
+  self.driver = driver
+  local passenger = self.entity.surface.create_entity{name = "character", position = self.entity.position, force = self.entity.force}
+  self.entity.set_passenger(passenger)
+  self.passenger = passenger
 end
 
 function Companion:check_robots()
@@ -87,6 +104,14 @@ function Companion:say(string)
 end
 
 function Companion:on_destroyed()
+  if self.driver and self.driver.valid then
+    self.driver.destroy()
+    self.driver = nil
+  end
+  if self.passenger and self.passenger.valid then
+    self.passenger.destroy()
+    self.passenger = nil
+  end
   script_data.companions[self.unit_number] = nil
 end
 
@@ -162,20 +187,22 @@ function Companion:return_to_player()
   if walking_state.walking then
     local orientation = walking_state.direction / 8
     local rads = (orientation - 0.5) * math.pi * 2
-    local rotated_x = 2 * math.cos(rads) - (1 * math.sin(rads))
-    local rotated_y = 2 * math.sin(rads) + (1 * math.cos(rads))
-    target_position.x = target_position.x + rotated_x
-    target_position.y = target_position.y + rotated_y
+    local unit_number = self.unit_number
+    local offset_x = math.random(-4, 4)
+    local offset_y = math.random(-4, 4)
+    local rotated_x = -2 * math.sin(rads)
+    local rotated_y = 2 * math.cos(rads)
+    target_position.x = target_position.x + offset_x + rotated_x
+    target_position.y = target_position.y + offset_y + rotated_y
     self.entity.autopilot_destination = target_position
-  elseif self:distance(target_position) > 5 then
-    self.entity.autopilot_destination =
-    {
-      (target_position.x + self.entity.position.x) / 2,
-      (target_position.y + self.entity.position.y) / 2
-    }
-  else
     self:schedule_tick_update(math.random(21,42))
+  elseif self:distance(target_position) > 5 then
+    self.entity.autopilot_destination = target_position
+    self:schedule_tick_update(math.random(60,100))
+  else
+    self:schedule_tick_update(math.random(30, 60))
   end
+
 end
 
 function Companion:is_busy()
@@ -303,8 +330,8 @@ lib.events =
 {
   [defines.events.on_built_entity] = on_built_entity,
   [defines.events.on_entity_destroyed] = on_entity_destroyed,
-  [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
-  [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
+  --[defines.events.on_player_placed_equipment] = on_player_placed_equipment,
+  --[defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_tick] = on_tick,
   [defines.events.on_robot_mined_entity] = on_robot_mined_entity,
   [defines.events.on_robot_built_entity] = on_robot_built_entity,
