@@ -1,8 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.5
-bot.max_speed = 0.5
+bot.speed = 0.007/(1-0.97)
+bot.max_speed = 0.007/(1-0.97)
 bot.max_energy = "1000MJ"
 bot.energy_per_tick = "1J"
 bot.speed_multiplier_when_out_of_energy = 1
@@ -13,7 +13,7 @@ bot.working_sound = nil
 --bot.minable = nil
 bot.selection_box = {{0,0}, {0,0}}
 bot.selectable_in_game = false
-bot.draw_cargo = false
+bot.draw_cargo = true
 bot.max_health = 9999999
 
 bot.idle = util.empty_sprite()
@@ -71,12 +71,12 @@ local equipment =
 
   charging_energy = "0kW",
 
-  robot_limit = 2,
+  robot_limit = 6,
   construction_radius = 10,
   draw_construction_radius_visualization = false,
   spawn_and_station_height = 0,
   spawn_and_station_shadow_height_offset = 0,
-  charge_approach_distance = -0.6,
+  charge_approach_distance = 0.5,
   robots_shrink_when_entering_and_exiting = true,
 
   recharging_animation =
@@ -126,8 +126,8 @@ attach_beam_graphics(deconstruct_beam, nil, nil, {1, 0, 0}, {1, 0, 0})
 
 local inserter_beam = util.copy(util.copy(data.raw["beam"]["laser-beam"]))
 inserter_beam.name = "inserter-beam"
-inserter_beam.head = util.empty_sprite()
-inserter_beam.head.repeat_count = 8
+--inserter_beam.head = util.empty_sprite()
+--inserter_beam.head.repeat_count = 8
 --inserter_beam.head =
 --{
 --  filename = "__Companion_Drones__/data//hr-fast-inserter-hand-closed.png",
@@ -136,8 +136,8 @@ inserter_beam.head.repeat_count = 8
 --  height = 72,
 --  scale = 0.25
 --}
-inserter_beam.start = util.empty_sprite()
-inserter_beam.start.repeat_count = 8
+--inserter_beam.start = util.empty_sprite()
+--inserter_beam.start.repeat_count = 8
 --inserter_beam.body =
 --{
 --  filename = "__Companion_Drones__/data//hr-fast-inserter-hand-base.png",
@@ -146,12 +146,13 @@ inserter_beam.start.repeat_count = 8
 --  width = 136,
 --  scale = 0.25
 --}
-inserter_beam.tail = util.empty_sprite()
-inserter_beam.tail.repeat_count = 8
-inserter_beam.ending = util.empty_sprite()
-inserter_beam.ending.repeat_count = 8
-inserter_beam.light_animations = nil
-inserter_beam.target_offset = {0, -1.5}
+--inserter_beam.tail = util.empty_sprite()
+--inserter_beam.tail.repeat_count = 8
+--inserter_beam.ending = util.empty_sprite()
+--inserter_beam.ending.repeat_count = 8
+--inserter_beam.light_animations = nil
+inserter_beam.target_offset = {0, -2}
+inserter_beam.random_target_offset = false
 inserter_beam.working_sound = nil
 
 local scale = 0.6
@@ -246,7 +247,7 @@ local drone =
   --dying_explosion = "spidertron-explosion",
   energy_per_hit_point = 1,
   guns = {},
-  inventory_size = 1,
+  inventory_size = 2,
   equipment_grid = "spidertron-equipment-grid",
   trash_inventory_size = 0,
   height = 2,
@@ -278,8 +279,8 @@ local drone =
     military_target = "spidertron-military-target"
   }
 }
-drone.graphics_set.render_layer = "air-object"
-drone.graphics_set.base_render_layer = "explosion"
+drone.graphics_set.render_layer = "air-entity-info-icon"
+drone.graphics_set.base_render_layer = "air-object"
 drone.graphics_set.light =
 {
   {

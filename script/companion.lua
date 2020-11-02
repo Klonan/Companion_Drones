@@ -1,3 +1,5 @@
+local util = require("util")
+
 local script_data =
 {
   companions = {},
@@ -28,7 +30,7 @@ Companion.new = function(entity, player)
   local grid = companion:get_grid()
   grid.put{name = "companion-roboport-equipment"}
   companion.flagged_for_equipment_changed = true
-  companion:schedule_tick_update(1)
+  companion:schedule_tick_update(30)
   companion:add_passengers()
 
 end
@@ -80,10 +82,10 @@ function Companion:check_robots()
       {
         name = "inserter-beam",
         position = self.entity.position,
-        source = robot,
-        target = self.entity,
+        target = robot,
+        source = self.entity,
         force = self.entity.force,
-        source_offset = {0, 1}
+        source_offset = {0, 0}
       }
     end
   end
@@ -96,16 +98,45 @@ function Companion:is_full()
   return stack.count == stack.prototype.stack_size
 end
 
+function Companion:move_to_robot_average()
+  local position = {x = 0, y = 0}
+  local our_position = self.entity.position
+  local count = 0
+  for k, robot in pairs (self.robots) do
+    local robot_position = robot.position
+    if util.distance(robot_position, our_position) > 2 then
+      position.x = position.x + robot_position.x
+      position.y = position.y + robot_position.y
+      count = count + 1
+    end
+  end
+  if count == 0 then return end
+  position.x = ((position.x / count))-- + our_position.x) / 2
+  position.y = ((position.y / count))-- + our_position.y) / 2
+
+  if util.distance(our_position, position) < 2 then return end
+  self.entity.autopilot_destination = position
+end
+
 function Companion:update()
+  self:schedule_tick_update(math.random(7, 23))
+  --self:say("U")
+
   if self.flagged_for_equipment_changed then
     self.flagged_for_equipment_changed = nil
     self:check_robots()
   end
 
+  self:try_to_shove_inventory()
+  if self:is_busy() then
+    self:move_to_robot_average()
+    return
+  end
+
   if self:is_full() or not self:is_busy() then
     self:return_to_player()
   else
-    self:schedule_tick_update(61)
+    --self:schedule_tick_update(61)
   end
 
 end
@@ -134,13 +165,13 @@ end
 
 function Companion:on_player_placed_equipment(event)
   self.flagged_for_equipment_changed = true
-  self:schedule_tick_update(1)
+  --self:schedule_tick_update(1)
   self:say("Equipment added")
 end
 
 function Companion:on_player_removed_equipment(event)
   self.flagged_for_equipment_changed = true
-  self:schedule_tick_update(1)
+  --self:schedule_tick_update(1)
   self:say("Equipment removed")
 end
 
@@ -247,7 +278,7 @@ function Companion:return_to_player()
 
   if self:distance(target_position) > 5 then
     self.entity.autopilot_destination = target_position
-    self:schedule_tick_update(math.random(60,100))
+    --self:schedule_tick_update(math.random(60,100))
     return
   end
 
@@ -262,9 +293,9 @@ function Companion:return_to_player()
     target_position.x = target_position.x + offset_x + rotated_x
     target_position.y = target_position.y + offset_y + rotated_y
     self.entity.autopilot_destination = target_position
-    self:schedule_tick_update(math.random(21,42))
+    --self:schedule_tick_update(math.random(21,42))
   else
-    self:schedule_tick_update(math.random(30, 60))
+    --self:schedule_tick_update(math.random(30, 60))
   end
 
   self:try_to_shove_inventory()
@@ -272,11 +303,9 @@ function Companion:return_to_player()
 end
 
 function Companion:is_busy()
-  local network = self.entity.logistic_network
-  if network then
-    if network.available_construction_robots ~= network.robot_limit then
-      return true
-    end
+  local cell = self.entity.logistic_cell
+  if cell then
+    return cell.to_charge_robot_count ~= table_size(self.robots)
   end
 end
 
