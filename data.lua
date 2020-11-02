@@ -91,8 +91,8 @@ local equipment =
   },
 
   recharging_light = {intensity = 0.4, size = 5},
-  stationing_offset = {0, 0},
-  charging_station_shift = {0, 0},
+  stationing_offset = {0, -2},
+  charging_station_shift = {0, -2},
   charging_station_count = 0,
   charging_distance = 0,
   charging_threshold_distance = 0,
@@ -123,6 +123,36 @@ local deconstruct_beam = util.copy(data.raw["beam"]["electric-beam-no-sound"])
 deconstruct_beam.name = "companion-deconstruct-beam"
 deconstruct_beam.action = nil
 attach_beam_graphics(deconstruct_beam, nil, nil, {1, 0, 0}, {1, 0, 0})
+
+local inserter_beam = util.copy(util.copy(data.raw["beam"]["laser-beam"]))
+inserter_beam.name = "inserter-beam"
+inserter_beam.head = util.empty_sprite()
+inserter_beam.head.repeat_count = 8
+--inserter_beam.head =
+--{
+--  filename = "__Companion_Drones__/data//hr-fast-inserter-hand-closed.png",
+--  priority = "extra-high",
+--  width = 164,
+--  height = 72,
+--  scale = 0.25
+--}
+inserter_beam.start = util.empty_sprite()
+inserter_beam.start.repeat_count = 8
+--inserter_beam.body =
+--{
+--  filename = "__Companion_Drones__/data//hr-fast-inserter-hand-base.png",
+--  priority = "extra-high",
+--  height = 32,
+--  width = 136,
+--  scale = 0.25
+--}
+inserter_beam.tail = util.empty_sprite()
+inserter_beam.tail.repeat_count = 8
+inserter_beam.ending = util.empty_sprite()
+inserter_beam.ending.repeat_count = 8
+inserter_beam.light_animations = nil
+inserter_beam.target_offset = {0, -1.5}
+inserter_beam.working_sound = nil
 
 local scale = 0.6
 local leg_scale = 1
@@ -355,6 +385,7 @@ data:extend
   equipment_item,
   build_beam,
   deconstruct_beam,
+  inserter_beam,
   drone,
   drone_item,
   leg

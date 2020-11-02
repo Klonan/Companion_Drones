@@ -76,6 +76,15 @@ function Companion:check_robots()
       self.robots[robot.unit_number] = robot
       robot.destructible = false
       robot.minable = false
+      self.entity.surface.create_entity
+      {
+        name = "inserter-beam",
+        position = self.entity.position,
+        source = robot,
+        target = self.entity,
+        force = self.entity.force,
+        source_offset = {0, 1}
+      }
     end
   end
 
@@ -147,9 +156,10 @@ function Companion:on_robot_built_entity(event)
   local entity = event.created_entity
   if not (entity and entity.valid) then return end
 
+  if true then return end
   local distance = self:distance(entity.position)
   local duration = math.ceil((distance / 0.5) * 0.9)
-  self.entity.surface.create_entity{name = "companion-build-beam", position = self.entity.position, target = entity, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration}
+  self.entity.surface.create_entity{name = "inserter-beam", position = self.entity.position, target = entity, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration* 100}
 
   if distance > 5 then
     self.entity.autopilot_destination =
@@ -167,6 +177,7 @@ function Companion:on_robot_built_tile(event)
   local tiles = event.tiles
   if not tiles and tiles[1] then return end
 
+  if true then return end
   local distance = self:distance(tiles[1].position)
   local duration = math.ceil((distance / 0.5) * 0.9)
   for k, tile in pairs (tiles) do
@@ -187,10 +198,10 @@ end
 function Companion:on_robot_pre_mined(event)
   local entity = event.entity
   if not (entity and entity.valid) then return end
-
+  if true then return end
   local distance = self:distance(entity.position)
   local duration = math.ceil((distance / 0.5) * 0.9)
-  self.entity.surface.create_entity{name = "companion-deconstruct-beam", position = self.entity.position, target_position = entity.position, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration}
+  self.entity.surface.create_entity{name = "inserter-beam", position = self.entity.position, target_position = entity.position, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration * 30}
   self.entity.surface.play_sound{position = self.entity.position, path = "utility/drop_item"}
 
   if distance > 5 then
