@@ -29,6 +29,9 @@ Companion.new = function(entity, player)
   entity.minable = false
   local grid = companion:get_grid()
   grid.put{name = "companion-roboport-equipment"}
+  for k, equipment in pairs (grid.equipment) do
+    equipment.energy = equipment.max_energy
+  end
   companion.flagged_for_equipment_changed = true
   companion:schedule_tick_update(30)
   companion:add_passengers()
@@ -104,6 +107,7 @@ function Companion:move_to_robot_average()
   local count = 0
   for k, robot in pairs (self.robots) do
     local robot_position = robot.position
+    robot_position.y = robot_position.y + 2
     if util.distance(robot_position, our_position) > 2 then
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
@@ -303,9 +307,9 @@ function Companion:return_to_player()
 end
 
 function Companion:is_busy()
-  local cell = self.entity.logistic_cell
-  if cell then
-    return cell.to_charge_robot_count ~= table_size(self.robots)
+  local network = self.entity.logistic_network
+  if network then
+    return network.available_construction_robots ~= table_size(self.robots)
   end
 end
 

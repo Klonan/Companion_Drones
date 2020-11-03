@@ -1,17 +1,18 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.007/(1-0.97)
-bot.max_speed = 0.007/(1-0.97)
+bot.speed = 0.3
+bot.max_speed = 0.3
 bot.max_energy = "1000MJ"
-bot.energy_per_tick = "1J"
-bot.speed_multiplier_when_out_of_energy = 1
-bot.energy_per_move = "1J"
+bot.energy_per_tick = "0J"
+bot.speed_multiplier_when_out_of_energy = 2
+bot.energy_per_move = "0J"
 bot.min_to_charge = 0
-bot.max_to_charge = 1
+bot.max_to_charge = 0
 bot.working_sound = nil
 --bot.minable = nil
-bot.selection_box = {{0,0}, {0,0}}
+bot.selection_box = {{-0.25,-0.25}, {0.25,0.25}}
+bot.cargo_centered = {0, -1}
 bot.selectable_in_game = false
 bot.draw_cargo = true
 bot.max_health = 9999999
@@ -28,6 +29,7 @@ bot.working = util.empty_sprite()
 bot.shadow_working = util.empty_sprite()
 bot.sparks = util.empty_sprite()
 bot.smoke = nil
+bot.water_reflection = nil
 
 local bot_item =
 {
@@ -64,19 +66,19 @@ local equipment =
   energy_source =
   {
     type = "electric",
-    buffer_capacity = "0W",
-    input_flow_limit = "0KW",
-    usage_priority = "secondary-input"
+    buffer_capacity = "10000000GW",
+    input_flow_limit = "1000KW",
+    usage_priority = "secondary-input",
   },
 
-  charging_energy = "0kW",
+  charging_energy = "10kW",
 
   robot_limit = 6,
   construction_radius = 10,
   draw_construction_radius_visualization = false,
-  spawn_and_station_height = 0,
+  spawn_and_station_height = -100000,
   spawn_and_station_shadow_height_offset = 0,
-  charge_approach_distance = 0.5,
+  charge_approach_distance = 0,
   robots_shrink_when_entering_and_exiting = true,
 
   recharging_animation =
@@ -96,6 +98,7 @@ local equipment =
   charging_station_count = 0,
   charging_distance = 0,
   charging_threshold_distance = 0,
+  robot_vertical_acceleration = -0.01,
   categories = {"armor"}
 }
 
@@ -151,7 +154,7 @@ inserter_beam.name = "inserter-beam"
 --inserter_beam.ending = util.empty_sprite()
 --inserter_beam.ending.repeat_count = 8
 --inserter_beam.light_animations = nil
-inserter_beam.target_offset = {0, -2}
+inserter_beam.target_offset = {0, 0}
 inserter_beam.random_target_offset = false
 inserter_beam.working_sound = nil
 
@@ -247,7 +250,7 @@ local drone =
   --dying_explosion = "spidertron-explosion",
   energy_per_hit_point = 1,
   guns = {},
-  inventory_size = 2,
+  inventory_size = 6,
   equipment_grid = "spidertron-equipment-grid",
   trash_inventory_size = 0,
   height = 2,
