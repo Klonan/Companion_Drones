@@ -136,9 +136,7 @@ function Companion:move_to_robot_average()
   if count == 0 then return end
   position.x = ((position.x / count))-- + our_position.x) / 2
   position.y = ((position.y / count))-- + our_position.y) / 2
-
-  if util.distance(our_position, position) < 2 then return end
-  self.entity.autopilot_destination = position
+  self:set_job_destination(position)
 end
 
 function Companion:update_busy_state()
@@ -150,7 +148,7 @@ function Companion:update_busy_state()
 end
 
 function Companion:is_getting_full()
-  return self:get_inventory()[5].valid_for_read
+  return self:get_inventory()[7].valid_for_read
 end
 
 function Companion:update()
@@ -158,6 +156,13 @@ function Companion:update()
 
   if self.moving_to_destination then
     return
+  end
+
+  if self.idle_until then
+    if game.tick < self.idle_until then
+      return
+    end
+    self.idle_until = nil
   end
 
   self:update_busy_state()
@@ -230,70 +235,6 @@ function Companion:distance(position)
   return (((source.x - x2) ^ 2) + ((source.y - y2) ^ 2)) ^ 0.5
 end
 
-function Companion:on_robot_built_entity(event)
-
-  local entity = event.created_entity
-  if not (entity and entity.valid) then return end
-
-  if true then return end
-  local distance = self:distance(entity.position)
-  local duration = math.ceil((distance / 0.5) * 0.9)
-  self.entity.surface.create_entity{name = "inserter-beam", position = self.entity.position, target = entity, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration* 100}
-
-  if distance > 5 then
-    self.entity.autopilot_destination =
-    {
-      (entity.position.x + self.entity.position.x) / 2,
-      (entity.position.y + self.entity.position.y) / 2
-    }
-  end
-  self:schedule_tick_update((duration * 2) + 100)
-
-end
-
-function Companion:on_robot_built_tile(event)
-
-  local tiles = event.tiles
-  if not tiles and tiles[1] then return end
-
-  if true then return end
-  local distance = self:distance(tiles[1].position)
-  local duration = math.ceil((distance / 0.5) * 0.9)
-  for k, tile in pairs (tiles) do
-    self.entity.surface.create_entity{name = "companion-build-beam", position = self.entity.position, target_position = tile.position, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration}
-  end
-
-  if distance > 5 then
-    self.entity.autopilot_destination =
-    {
-      (tiles[1].position.x + self.entity.position.x) / 2,
-      (tiles[1].position.y + self.entity.position.y) / 2
-    }
-  end
-  self:schedule_tick_update((duration * 2) + 100)
-
-end
-
-function Companion:on_robot_pre_mined(event)
-  local entity = event.entity
-  if not (entity and entity.valid) then return end
-  if true then return end
-  local distance = self:distance(entity.position)
-  local duration = math.ceil((distance / 0.5) * 0.9)
-  self.entity.surface.create_entity{name = "inserter-beam", position = self.entity.position, target_position = entity.position, source = self.entity, force = self.entity.force, source_offset = {0, -0}, duration = duration * 30}
-  self.entity.surface.play_sound{position = self.entity.position, path = "utility/drop_item"}
-
-  if distance > 5 then
-    self.entity.autopilot_destination =
-    {
-      (entity.position.x + self.entity.position.x) / 2,
-      (entity.position.y + self.entity.position.y) / 2
-    }
-  end
-  self:schedule_tick_update((duration * 2) + 100)
-
-end
-
 function Companion:get_inventory()
   local inventory = self.entity.get_inventory(defines.inventory.spider_trunk)
   inventory.sort_and_merge()
@@ -358,21 +299,99 @@ end
 function Companion:on_spider_command_completed()
   self:update()
   self.moving_to_destination = nil
+  self.idle_until = game.tick + 49 + 30
 end
 
 function Companion:take_item(item)
   local inventory = self:get_inventory()
-  local count = math.max(math.min(game.item_prototypes[item.name].stack_size, math.floor(self.player.get_item_count(item.name) / 2)), item.count)
+  local count = math.max(math.min(math.ceil(game.item_prototypes[item.name].stack_size / 2), self.player.get_item_count(item.name)), item.count)
   local removed = self.player.remove_item({name = item.name, count = count})
   if removed == 0 then return end
   inventory.insert({name = item.name, count = removed})
   return removed >= item.count
 end
 
+
+local angle = function(position_1, position_2)
+  local d_x = (position_2[1] or position_2.x) - (position_1[1] or position_1.x)
+  local d_y = (position_2[2] or position_2.y) - (position_1[2] or position_1.y)
+  return math.atan2(d_y, d_x)
+end
+
+function Companion:get_offset(target_position, length)
+
+    -- Angle in rads
+    local angle = angle(self.entity.position, target_position)
+    angle = angle + (math.pi / 2)
+    local x1 = (length * math.sin(angle))
+    local y1 = (-length * math.cos(angle))
+
+    return {x1, y1}
+end
+
 function Companion:set_job_destination(position)
-  self.entity.autopilot_destination = position
-  self.moving_to_destination = true
+  local self_position = self.entity.position
+  local distance = self:distance(position) - 4
+  if distance > 0 then
+    local offset = self:get_offset(position, distance)
+    self_position.x = self_position.x + offset[1]
+    self_position.y = self_position.y + offset[2]
+    self.entity.autopilot_destination = self_position
+    self.moving_to_destination = true
+    self.idle_until = game.tick + 49 + 30
+    --self.entity.surface.create_entity{name = "flying-text", position = self_position, text = "[]"}
+  end
   self.is_busy = true
+end
+
+function Companion:try_to_find_work(search_area)
+
+  local entities
+  local deconstruction_only = self:distance(self.player.position) > 10
+  if deconstruction_only then
+    -- We are far away from the player, so we can only handle deconstruction
+    entities = self.entity.surface.find_entities_filtered{area = search_area, to_be_deconstructed = true}
+  else
+    entities = self.entity.surface.find_entities_filtered{area = search_area}
+  end
+
+  local attempted_ghost_names = {}
+  local max_item_type_count = 6
+  local force = self.entity.force
+  for k, entity in pairs (entities) do
+
+    if deconstruction_only or entity.to_be_deconstructed() then
+      if entity.type ~= "cliff" then
+        if entity.force == force or entity.force.name == "neutral" then
+          self:set_job_destination(entity.position)
+          return
+        end
+      end
+    end
+
+    if not deconstruction_only then
+
+      if entity.type == "entity-ghost" then
+        if not attempted_ghost_names[entity.ghost_name] and entity.force == force then
+          local item = entity.ghost_prototype.items_to_place_this[1]
+          local count = self.player.get_item_count(item.name)
+          if count >= item.count then
+            if self:take_item(item) then
+              if not self.moving_to_destination then
+                self:set_job_destination(entity.position)
+              end
+              max_item_type_count = max_item_type_count - 1
+              if max_item_type_count <= 0 then
+                return
+              end
+            end
+          end
+          attempted_ghost_names[entity.ghost_name] = true
+        end
+      end
+
+    end
+  end
 end
 
 
@@ -478,35 +497,7 @@ local perform_job_search = function(player, player_data)
   local position = player.position
   local search_area = {{area[1][1] + position.x, area[1][2] + position.y}, {area[2][1] + position.x, area[2][2] + position.y}}
 
-
-  local force = player.force
-  local entities = player.surface.find_entities_filtered{area = search_area}
-  local failed_ghost_names = {}
-
-  for k, entity in pairs (entities) do
-
-    if entity.to_be_deconstructed() then
-      if entity.force == player.force or entity.force.name == "neutral" then
-        free_companion:set_job_destination(entity.position)
-        return
-      end
-    end
-
-    if entity.type == "entity-ghost" then
-      if not failed_ghost_names[entity.ghost_name] and entity.force == player.force then
-        local item = entity.ghost_prototype.items_to_place_this[1]
-        local count = player.get_item_count(item.name)
-        if count >= item.count then
-          if free_companion:take_item(item) then
-            free_companion:set_job_destination(entity.position)
-            return
-          end
-        end
-        failed_ghost_names[entity.ghost_name] = true
-      end
-    end
-
-  end
+  free_companion:try_to_find_work(search_area)
 
   --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_search_offset}
   --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_search_offset}
@@ -527,55 +518,6 @@ local on_tick = function(event)
   check_companion_updates(event)
 end
 
-local on_robot_pre_mined = function(event)
-  local robot = event.robot
-  if not (robot and robot.valid) then return end
-  if robot.name ~= "companion-construction-robot" then return end
-
-  local source = robot.logistic_network.cells[1].owner
-  local companion = get_companion(source.unit_number)
-  if not companion then
-    robot.destroy()
-    return
-  end
-
-  companion:on_robot_pre_mined(event)
-
-end
-
-local on_robot_built_entity = function(event)
-  local robot = event.robot
-  if not (robot and robot.valid) then return end
-  if robot.name ~= "companion-construction-robot" then return end
-
-  local source = robot.logistic_network.cells[1].owner
-  local companion = get_companion(source.unit_number)
-  if not companion then
-    robot.destroy()
-    return
-  end
-
-  companion:on_robot_built_entity(event)
-
-end
-
-local on_robot_built_tile = function(event)
-
-  local robot = event.robot
-  if not (robot and robot.valid) then return end
-  if robot.name ~= "companion-construction-robot" then return end
-
-  local source = robot.logistic_network.cells[1].owner
-  local companion = get_companion(source.unit_number)
-  if not companion then
-    robot.destroy()
-    return
-  end
-
-  companion:on_robot_built_tile(event)
-
-end
-
 local on_spider_command_completed = function(event)
   local spider = event.vehicle
   local companion = get_companion(spider.unit_number)
@@ -592,9 +534,6 @@ lib.events =
   --[defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   --[defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_tick] = on_tick,
-  [defines.events.on_robot_pre_mined] = on_robot_pre_mined,
-  [defines.events.on_robot_built_entity] = on_robot_built_entity,
-  [defines.events.on_robot_built_tile] = on_robot_built_tile,
   [defines.events.on_spider_command_completed] = on_spider_command_completed,
 }
 

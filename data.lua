@@ -74,7 +74,7 @@ local equipment =
   charging_energy = "10kW",
 
   robot_limit = 6,
-  construction_radius = 10,
+  construction_radius = (100/7) * 0.5,
   draw_construction_radius_visualization = false,
   spawn_and_station_height = -100000,
   spawn_and_station_shadow_height_offset = 0,
@@ -250,7 +250,7 @@ local drone =
   --dying_explosion = "spidertron-explosion",
   energy_per_hit_point = 1,
   guns = {},
-  inventory_size = 6,
+  inventory_size = 12,
   equipment_grid = "spidertron-equipment-grid",
   trash_inventory_size = 0,
   height = 2,
