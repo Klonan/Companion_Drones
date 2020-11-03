@@ -3,11 +3,21 @@ local util = require("util")
 local script_data =
 {
   companions = {},
-  tick_updates = {}
+  tick_updates = {},
+  player_data = {},
+  search_schedule = {}
 }
 
 local get_companion = function(unit_number)
   return unit_number and script_data.companions[unit_number]
+end
+
+local distance = function(position_1, position_2)
+  local x1 = position_1[1] or position_1.x
+  local y1 = position_1[2] or position_1.y
+  local x2 = position_2[1] or position_2.x
+  local y2 = position_2[2] or position_2.y
+  return (((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1))) ^ 0.5
 end
 
 local Companion = {}
@@ -29,13 +39,22 @@ Companion.new = function(entity, player)
   entity.minable = false
   local grid = companion:get_grid()
   grid.put{name = "companion-roboport-equipment"}
+
   for k, equipment in pairs (grid.equipment) do
     equipment.energy = equipment.max_energy
   end
+
   companion.flagged_for_equipment_changed = true
-  companion:schedule_tick_update(30)
+  companion:schedule_tick_update(1)
   companion:add_passengers()
 
+  entity.color = player.color
+  local player_data = script_data.player_data[player.index]
+  if not player_data then
+    player_data = {companions = {}, last_search_offset = 0}
+    script_data.player_data[player.index] = player_data
+  end
+  player_data.companions[entity.unit_number] = companion
 end
 
 function Companion:get_grid()
@@ -96,7 +115,7 @@ function Companion:check_robots()
 end
 
 function Companion:is_full()
-  local stack = self:get_stack()
+  local stack = self:get_first_stack()
   if not (stack and stack.valid_for_read) then return end
   return stack.count == stack.prototype.stack_size
 end
@@ -108,7 +127,7 @@ function Companion:move_to_robot_average()
   for k, robot in pairs (self.robots) do
     local robot_position = robot.position
     robot_position.y = robot_position.y + 2
-    if util.distance(robot_position, our_position) > 2 then
+    if util.distance(robot_position, our_position) > 0.5 then
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
       count = count + 1
@@ -122,8 +141,26 @@ function Companion:move_to_robot_average()
   self.entity.autopilot_destination = position
 end
 
+function Companion:update_busy_state()
+  self.is_busy = false
+  local network = self.entity.logistic_network
+  if network then
+    self.is_busy = (network.available_construction_robots ~= table_size(self.robots))
+  end
+end
+
+function Companion:is_getting_full()
+  return self:get_inventory()[5].valid_for_read
+end
+
 function Companion:update()
   self:schedule_tick_update(math.random(7, 23))
+
+  if self.moving_to_destination then
+    return
+  end
+
+  self:update_busy_state()
   --self:say("U")
 
   if self.flagged_for_equipment_changed then
@@ -131,16 +168,10 @@ function Companion:update()
     self:check_robots()
   end
 
-  self:try_to_shove_inventory()
-  if self:is_busy() then
-    self:move_to_robot_average()
-    return
-  end
-
-  if self:is_full() or not self:is_busy() then
+  if self:is_getting_full() or not self.is_busy then
     self:return_to_player()
   else
-    --self:schedule_tick_update(61)
+    self:move_to_robot_average()
   end
 
 end
@@ -164,7 +195,20 @@ function Companion:on_destroyed()
     self.passenger.destroy()
     self.passenger = nil
   end
+
+  for k, robot in pairs (self.robots) do
+    robot.destroy()
+  end
+
   script_data.companions[self.unit_number] = nil
+  local player_data = script_data.player_data[self.player.index]
+
+  player_data.companions[self.unit_number] = nil
+
+  if not next(player_data.companions) then
+    script_data.player_data[self.player.index] = nil
+  end
+
 end
 
 function Companion:on_player_placed_equipment(event)
@@ -250,37 +294,45 @@ function Companion:on_robot_pre_mined(event)
 
 end
 
-function Companion:get_stack()
-  return self.entity.get_inventory(defines.inventory.spider_trunk)[1]
+function Companion:get_inventory()
+  local inventory = self.entity.get_inventory(defines.inventory.spider_trunk)
+  inventory.sort_and_merge()
+  return inventory
+end
+
+function Companion:get_first_stack()
+  return self:get_inventory()[1]
 end
 
 function Companion:try_to_shove_inventory()
-  local stack = self:get_stack()
-  if not (stack and stack.valid_for_read) then return end
-  local inserted = self.player.insert(stack)
-  if inserted == 0 then
-    self.player.print({"inventory-restriction.player-inventory-full", stack.prototype.localised_name, {"inventory-full-message.main"}})
-    return
-  end
+  local inventory = self:get_inventory()
+  for k = 1, #inventory do
+    local stack = inventory[k]
+    if not (stack and stack.valid_for_read) then return end
+    local inserted = self.player.insert(stack)
+    if inserted == 0 then
+      self.player.print({"inventory-restriction.player-inventory-full", stack.prototype.localised_name, {"inventory-full-message.main"}})
+      return
+    end
 
-  if inserted == stack.count then
-    stack.clear()
-    return
-  end
+    if inserted == stack.count then
+      stack.clear()
+      return
+    end
 
-  stack.count = stack.count - inserted
+    stack.count = stack.count - inserted
+  end
 end
 
 function Companion:return_to_player()
+
   if not self.player.valid then return end
 
-
   local target_position = self.player.position
-
   local walking_state = self.player.walking_state
 
 
-  if self:distance(target_position) > 5 then
+  if self:distance(target_position) > 6 then
     self.entity.autopilot_destination = target_position
     --self:schedule_tick_update(math.random(60,100))
     return
@@ -297,28 +349,30 @@ function Companion:return_to_player()
     target_position.x = target_position.x + offset_x + rotated_x
     target_position.y = target_position.y + offset_y + rotated_y
     self.entity.autopilot_destination = target_position
-    --self:schedule_tick_update(math.random(21,42))
-  else
-    --self:schedule_tick_update(math.random(30, 60))
   end
 
   self:try_to_shove_inventory()
 
 end
 
-function Companion:is_busy()
-  local network = self.entity.logistic_network
-  if network then
-    return network.available_construction_robots ~= table_size(self.robots)
-  end
+function Companion:on_spider_command_completed()
+  self:update()
+  self.moving_to_destination = nil
 end
 
-function Companion:on_spider_command_completed()
+function Companion:take_item(item)
+  local inventory = self:get_inventory()
+  local count = math.max(math.min(game.item_prototypes[item.name].stack_size, math.floor(self.player.get_item_count(item.name) / 2)), item.count)
+  local removed = self.player.remove_item({name = item.name, count = count})
+  if removed == 0 then return end
+  inventory.insert({name = item.name, count = removed})
+  return removed >= item.count
+end
 
-  if not self:is_full() and self:is_busy() then return end
-
-  self:return_to_player()
-
+function Companion:set_job_destination(position)
+  self.entity.autopilot_destination = position
+  self.moving_to_destination = true
+  self.is_busy = true
 end
 
 
@@ -372,7 +426,7 @@ local on_player_removed_equipment = function(event)
 
 end
 
-local on_tick = function(event)
+local check_companion_updates = function(event)
   local tick_updates = script_data.tick_updates[event.tick]
   if not tick_updates then return end
   for unit_number, bool in pairs (tick_updates) do
@@ -382,6 +436,95 @@ local on_tick = function(event)
     end
   end
   script_data.tick_updates[event.tick] = nil
+end
+
+local search_offsets = {}
+local search_refresh = nil
+local search_distance = 100
+local search_divisions = 7
+
+local setup_search_offsets = function()
+  local r = search_distance / search_divisions
+  search_offsets = {}
+  for y = 0, (search_divisions - 1) do
+    local offset_y = (y - (search_divisions / 2)) * r
+    for x = 0, (search_divisions - 1) do
+      local offset_x = (x - (search_divisions / 2)) * r
+      local area = {{offset_x, offset_y}, {offset_x + r, offset_y + r}}
+      table.insert(search_offsets, area)
+    end
+  end
+
+  table.sort(search_offsets, function(a, b) return distance(a[1], {0,0}) < distance(b[1], {0,0}) end)
+  search_refresh = #search_offsets
+end
+setup_search_offsets()
+
+local perform_job_search = function(player, player_data)
+
+  local free_companion
+  for k, companion in pairs (player_data.companions) do
+    if not companion.is_busy then free_companion = companion end
+  end
+  if not free_companion then return end
+
+  player_data.last_search_offset = player_data.last_search_offset + 1
+  local area = search_offsets[player_data.last_search_offset]
+  if not area then
+    player_data.last_search_offset = 0
+    return
+  end
+
+  local position = player.position
+  local search_area = {{area[1][1] + position.x, area[1][2] + position.y}, {area[2][1] + position.x, area[2][2] + position.y}}
+
+
+  local force = player.force
+  local entities = player.surface.find_entities_filtered{area = search_area}
+  local failed_ghost_names = {}
+
+  for k, entity in pairs (entities) do
+
+    if entity.to_be_deconstructed() then
+      if entity.force == player.force or entity.force.name == "neutral" then
+        free_companion:set_job_destination(entity.position)
+        return
+      end
+    end
+
+    if entity.type == "entity-ghost" then
+      if not failed_ghost_names[entity.ghost_name] and entity.force == player.force then
+        local item = entity.ghost_prototype.items_to_place_this[1]
+        local count = player.get_item_count(item.name)
+        if count >= item.count then
+          if free_companion:take_item(item) then
+            free_companion:set_job_destination(entity.position)
+            return
+          end
+        end
+        failed_ghost_names[entity.ghost_name] = true
+      end
+    end
+
+  end
+
+  --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_search_offset}
+  --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_search_offset}
+
+end
+
+local check_job_search = function()
+  for k, player in pairs (game.connected_players) do
+    local player_data = script_data.player_data[player.index]
+    if player_data then
+      perform_job_search(player, player_data)
+    end
+  end
+end
+
+local on_tick = function(event)
+  check_job_search(event)
+  check_companion_updates(event)
 end
 
 local on_robot_pre_mined = function(event)
