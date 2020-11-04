@@ -126,8 +126,8 @@ function Companion:move_to_robot_average()
   local count = 0
   for k, robot in pairs (self.robots) do
     local robot_position = robot.position
-    robot_position.y = robot_position.y + 2
-    if util.distance(robot_position, our_position) > 0.5 then
+    if robot.energy < 1000000 then
+      robot.energy = 1000000
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
       count = count + 1
@@ -137,14 +137,11 @@ function Companion:move_to_robot_average()
   position.x = ((position.x / count))-- + our_position.x) / 2
   position.y = ((position.y / count))-- + our_position.y) / 2
   self:set_job_destination(position)
+  return true
 end
 
 function Companion:update_busy_state()
-  self.is_busy = false
-  local network = self.entity.logistic_network
-  if network then
-    self.is_busy = (network.available_construction_robots ~= table_size(self.robots))
-  end
+  self.is_busy = self.moving_to_destination or self:move_to_robot_average()
 end
 
 function Companion:is_getting_full()
@@ -152,31 +149,22 @@ function Companion:is_getting_full()
 end
 
 function Companion:update()
-  self:schedule_tick_update(math.random(7, 23))
-
-  if self.moving_to_destination then
-    return
-  end
-
-  if self.idle_until then
-    if game.tick < self.idle_until then
-      return
-    end
-    self.idle_until = nil
-  end
-
-  self:update_busy_state()
-  --self:say("U")
 
   if self.flagged_for_equipment_changed then
     self.flagged_for_equipment_changed = nil
     self:check_robots()
   end
 
+  if self.moving_to_destination then
+    self:schedule_tick_update(10)
+    return
+  end
+
+  self:update_busy_state()
+  --self:say("U")
+
   if self:is_getting_full() or not self.is_busy then
     self:return_to_player()
-  else
-    self:move_to_robot_average()
   end
 
 end
@@ -185,6 +173,7 @@ function Companion:schedule_tick_update(ticks)
   local tick = game.tick + ticks
   script_data.tick_updates[tick] = script_data.tick_updates[tick] or {}
   script_data.tick_updates[tick][self.unit_number] = true
+  self:say(ticks)
 end
 
 function Companion:say(string)
@@ -247,21 +236,35 @@ end
 
 function Companion:try_to_shove_inventory()
   local inventory = self:get_inventory()
+  local total_inserted = 0
   for k = 1, #inventory do
     local stack = inventory[k]
-    if not (stack and stack.valid_for_read) then return end
+    if not (stack and stack.valid_for_read) then break end
     local inserted = self.player.insert(stack)
     if inserted == 0 then
       self.player.print({"inventory-restriction.player-inventory-full", stack.prototype.localised_name, {"inventory-full-message.main"}})
-      return
+    else
+      total_inserted = total_inserted + inserted
+      if inserted == stack.count then
+        stack.clear()
+      else
+        stack.count = stack.count - inserted
+      end
+      break
     end
+  end
 
-    if inserted == stack.count then
-      stack.clear()
-      return
-    end
-
-    stack.count = stack.count - inserted
+  if total_inserted > 0 then
+    self.entity.surface.create_entity
+    {
+      name = "inserter-beam",
+      source = self.entity,
+      target = self.player.character,
+      target_position = self.player.position,
+      force = self.entity.force,
+      position = self.entity.position,
+      duration = math.max(math.ceil(total_inserted / 5), 5)
+    }
   end
 end
 
@@ -271,13 +274,6 @@ function Companion:return_to_player()
 
   local target_position = self.player.position
   local walking_state = self.player.walking_state
-
-
-  if self:distance(target_position) > 6 then
-    self.entity.autopilot_destination = target_position
-    --self:schedule_tick_update(math.random(60,100))
-    return
-  end
 
   if walking_state.walking then
     local orientation = walking_state.direction / 8
@@ -289,17 +285,23 @@ function Companion:return_to_player()
     local rotated_y = 2 * math.cos(rads)
     target_position.x = target_position.x + offset_x + rotated_x
     target_position.y = target_position.y + offset_y + rotated_y
-    self.entity.autopilot_destination = target_position
   end
+
+  local distance = self:distance(target_position)
+  if distance > 6 then
+    self.entity.autopilot_destination = target_position
+    return
+  end
+
+  self:schedule_tick_update(23)
 
   self:try_to_shove_inventory()
 
 end
 
 function Companion:on_spider_command_completed()
-  self:update()
   self.moving_to_destination = nil
-  self.idle_until = game.tick + 49 + 30
+  --self:schedule_tick_update(49 + 30)
 end
 
 function Companion:take_item(item)
@@ -329,18 +331,27 @@ function Companion:get_offset(target_position, length)
     return {x1, y1}
 end
 
-function Companion:set_job_destination(position)
+function Companion:set_job_destination(position, delay_update)
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
+
+  local update = 0
+  if delay_update then update = update + 80 end
+
   if distance > 0 then
     local offset = self:get_offset(position, distance)
     self_position.x = self_position.x + offset[1]
     self_position.y = self_position.y + offset[2]
     self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    self.idle_until = game.tick + 49 + 30
-    --self.entity.surface.create_entity{name = "flying-text", position = self_position, text = "[]"}
+    update = update + (distance / 0.2)
   end
+
+  if update == 0 then
+    update = 10
+  end
+
+  self:schedule_tick_update(update)
   self.is_busy = true
 end
 
@@ -363,7 +374,7 @@ function Companion:try_to_find_work(search_area)
     if deconstruction_only or entity.to_be_deconstructed() then
       if entity.type ~= "cliff" then
         if entity.force == force or entity.force.name == "neutral" then
-          self:set_job_destination(entity.position)
+          self:set_job_destination(entity.position, true)
           return
         end
       end
@@ -378,7 +389,7 @@ function Companion:try_to_find_work(search_area)
           if count >= item.count then
             if self:take_item(item) then
               if not self.moving_to_destination then
-                self:set_job_destination(entity.position)
+                self:set_job_destination(entity.position, true)
               end
               max_item_type_count = max_item_type_count - 1
               if max_item_type_count <= 0 then
@@ -474,7 +485,13 @@ local setup_search_offsets = function()
     end
   end
 
-  table.sort(search_offsets, function(a, b) return distance(a[1], {0,0}) < distance(b[1], {0,0}) end)
+  --table.sort(search_offsets, function(a, b) return distance(a[1], {0,0}) < distance(b[1], {0,0}) end)
+
+  for k, v in pairs (search_offsets) do
+    local i = (((k * 19) ^ 2) % #search_offsets) + 1
+    search_offsets[k], search_offsets[i] = search_offsets[i], search_offsets[k]
+  end
+
   search_refresh = #search_offsets
 end
 setup_search_offsets()
