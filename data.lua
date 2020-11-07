@@ -70,15 +70,16 @@ local equipment =
   energy_source =
   {
     type = "electric",
-    buffer_capacity = "10000000GW",
-    input_flow_limit = "1000KW",
+    buffer_capacity = "1MW",
+    input_flow_limit = "1kW",
     usage_priority = "secondary-input",
   },
 
   charging_energy = "10kW",
+  spawn_minimum = "10W",
 
-  robot_limit = 6,
-  construction_radius = (100/7) * 0.707,
+  robot_limit = 4,
+  construction_radius = (100/7) * 0.5,
   draw_construction_radius_visualization = false,
   spawn_and_station_height = -100000,
   spawn_and_station_shadow_height_offset = 0,
@@ -287,7 +288,8 @@ local drone =
       }
     },
     military_target = "spidertron-military-target"
-  }
+  },
+  minable = {item = "companion", count = 1, mining_time = 1}
 }
 drone.graphics_set.render_layer = "air-entity-info-icon"
 drone.graphics_set.base_render_layer = "air-object"
@@ -409,7 +411,7 @@ local gun =
   {
     type = "electric",
     usage_priority = "secondary-input",
-    buffer_capacity = "10000MJ"
+    buffer_capacity = "1MJ"
   },
 
   attack_parameters =
@@ -424,7 +426,7 @@ local gun =
     ammo_type =
     {
       category = "laser",
-      energy_consumption = "1J",
+      energy_consumption = "0.1MJ",
       action =
       {
         type = "direct",
@@ -529,11 +531,11 @@ local shield =
   energy_source =
   {
     type = "electric",
-    buffer_capacity = "60J",
-    input_flow_limit = "12W",
+    buffer_capacity = "1MJ",
+    input_flow_limit = "0.1MJ",
     usage_priority = "primary-input"
   },
-  energy_per_shield = "1J",
+  energy_per_shield = "0.01MJ",
   categories = {"companion"}
 }
 
@@ -596,14 +598,107 @@ local category =
 }
 
 
+local reactor =
+{
+  type = "generator-equipment",
+  name = "companion-reactor-equipment",
+  sprite =
+  {
+    filename = "__base__/graphics/equipment/fusion-reactor-equipment.png",
+    width = 128,
+    height = 128,
+    priority = "medium"
+  },
+  shape =
+  {
+    width = 2,
+    height = 2,
+    type = "full"
+  },
+  energy_source =
+  {
+    type = "electric",
+    usage_priority = "primary-output"
+  },
+  power = "1MW",
+  categories = {"companion"}
+}
+
+local reactor_item =
+{
+  type = "item",
+  name = "companion-reactor-equipment",
+  icon = "__base__/graphics/icons/fusion-reactor-equipment.png",
+  icon_size = 64, icon_mipmaps = 4,
+  placed_as_equipment_result = "companion-reactor-equipment",
+  subgroup = "equipment",
+  order = "a[energy-source]-b[fusion-reactor]",
+  default_request_amount = 1,
+  stack_size = 20
+}
+
+local recipes =
+{
+  {
+    type = "recipe",
+    name = "companion-reactor-equipment",
+    enabled = true,
+    energy_required = 10,
+    ingredients =
+    {
+      {"electronic-circuit", 100},
+      {"iron-gear-wheel", 50}
+    },
+    result = "companion-reactor-equipment"
+  },
+  {
+    type = "recipe",
+    name = "companion-shield-equipment",
+    enabled = true,
+    energy_required = 10,
+    ingredients =
+    {
+      {"iron-gear-wheel", 20},
+      {"copper-plate", 20}
+    },
+    result = "companion-shield-equipment"
+  },
+  {
+    type = "recipe",
+    name = "companion-roboport-equipment",
+    enabled = true,
+    energy_required = 10,
+    ingredients =
+    {
+      {"iron-plate", 20},
+      {"iron-stick", 20}
+    },
+    result = "companion-roboport-equipment"
+  },
+  {
+    type = "recipe",
+    name = "companion-defense-equipment",
+    enabled = true,
+    energy_required = 10,
+    ingredients =
+    {
+      {"iron-gear-wheel", 15},
+      {"copper-cable", 10},
+    },
+    result = "companion-defense-equipment"
+  }
+}
+
+data:extend(recipes)
+
 data:extend
 {
   bot,
   bot_item,
   equipment,
   equipment_item,
-  build_beam,
-  deconstruct_beam,
+  --build_beam,
+  --deconstruct_beam,
   inserter_beam,
   drone,
   drone_item,
@@ -614,8 +709,10 @@ data:extend
   companion_grid,
   shield,
   shield_item,
-  battery,
-  battery_item,
+  --battery,
+  --battery_item,
+  reactor,
+  reactor_item,
   category
 
 }

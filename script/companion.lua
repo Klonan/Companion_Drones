@@ -48,20 +48,8 @@ Companion.new = function(entity, player)
   setmetatable(companion, Companion.metatable)
   script_data.companions[entity.unit_number] = companion
   script.register_on_entity_destroyed(entity)
-  entity.operable = false
+  entity.operable = true
   entity.minable = false
-  local grid = companion:get_grid()
-  grid.put{name = "companion-roboport-equipment"}
-  grid.put{name = "companion-defense-equipment"}
-  grid.put{name = "companion-shield-equipment"}
-  grid.put{name = "companion-battery-equipment"}
-
-  for k, equipment in pairs (grid.equipment) do
-    equipment.energy = equipment.max_energy
-    if equipment.max_shield > 0 then
-      equipment.shield = equipment.max_shield
-    end
-  end
 
   companion.flagged_for_equipment_changed = true
   companion:propose_tick_update(1)
@@ -178,6 +166,7 @@ function Companion:update()
 
   if self.flagged_for_equipment_changed then
     self.flagged_for_equipment_changed = nil
+    --self:say("Checking equipment")
     self:check_robots()
   end
 
@@ -502,6 +491,16 @@ function Companion:try_to_find_work(search_area)
   end
 end
 
+function Companion:on_player_placed_equipment(event)
+  self.flagged_for_equipment_changed = true
+  self:say("Equipment added")
+end
+
+function Companion:on_player_removed_equipment(event)
+  self.flagged_for_equipment_changed = true
+  self:say("Equipment removed")
+end
+
 
 local on_built_entity = function(event)
   local entity = event.created_entity
@@ -568,7 +567,7 @@ local perform_job_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy then
+    if not companion.is_busy and next(companion.robots) then
       free_companion = companion
       break
     end
@@ -640,6 +639,48 @@ local on_script_trigger_effect = function(event)
 
 end
 
+local on_player_placed_equipment = function(event)
+
+  local player = game.get_player(event.player_index)
+  if player.opened_gui_type ~= defines.gui_type.entity then return end
+
+
+  local opened = player.opened
+  if not (opened and opened.valid) then return end
+
+  local companion = get_companion(opened.unit_number)
+  if not companion then return end
+
+  companion:on_player_placed_equipment(event)
+
+end
+
+local on_player_removed_equipment = function(event)
+  local player = game.get_player(event.player_index)
+  if player.opened_gui_type ~= defines.gui_type.entity then return end
+
+  local opened = player.opened
+  if not (opened and opened.valid) then return end
+
+  local companion = get_companion(opened.unit_number)
+  if not companion then return end
+
+  companion:on_player_removed_equipment(event)
+
+end
+
+local on_entity_settings_pasted = function(event)
+
+  local entity = event.destination
+  if not (entity and entity.valid) then return end
+
+  local companion = get_companion(entity.unit_number)
+  if not companion then return end
+
+  companion.flagged_for_equipment_changed = true
+
+end
+
 local lib = {}
 
 lib.events =
@@ -649,6 +690,10 @@ lib.events =
   [defines.events.on_tick] = on_tick,
   [defines.events.on_spider_command_completed] = on_spider_command_completed,
   [defines.events.on_script_trigger_effect] = on_script_trigger_effect,
+  [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
+  [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
+  [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted
+
 }
 
 lib.on_load = function()
