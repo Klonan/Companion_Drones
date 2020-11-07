@@ -35,8 +35,8 @@ local bot_item =
 {
   type = "item",
   name = "companion-construction-robot",
-  icon = "__base__/graphics/icons/construction-robot.png",
-  icon_size = 64, icon_mipmaps = 4,
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
   subgroup = "logistic-network",
   order = "a[robot]-b[construction-robot]",
   place_result = "companion-construction-robot",
@@ -99,15 +99,15 @@ local equipment =
   charging_distance = 0,
   charging_threshold_distance = 0,
   robot_vertical_acceleration = -0.01,
-  categories = {"armor"}
+  categories = {"companion"}
 }
 
 local equipment_item =
 {
   type = "item",
   name = "companion-roboport-equipment",
-  icon = "__base__/graphics/icons/personal-roboport-equipment.png",
-  icon_size = 64, icon_mipmaps = 4,
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
   placed_as_equipment_result = "companion-roboport-equipment",
   subgroup = "equipment",
   order = "e[robotics]-a[personal-roboport-equipment]",
@@ -171,7 +171,8 @@ local drone =
   collision_box = {{-1 * scale, -1 * scale}, {1 * scale, 1 * scale}},
   selection_box = {{-1 * scale, -1 * scale}, {1 * scale, 1 * scale}},
   drawing_box = {{-3 * scale, -4 * scale}, {3 * scale, 2 * scale}},
-  icon = "__base__/graphics/icons/spidertron.png",
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
   mined_sound = {filename = "__core__/sound/deconstruct-large.ogg",volume = 0.8},
   open_sound = { filename = "__base__/sound/spidertron/spidertron-door-open.ogg", volume= 0.35 },
   close_sound = { filename = "__base__/sound/spidertron/spidertron-door-close.ogg", volume = 0.4 },
@@ -196,14 +197,13 @@ local drone =
     },
     match_speed_to_activity = true
   },
-  icon_size = 64, icon_mipmaps = 4,
   weight = 1,
   braking_force = 1,
   friction_force = 1,
   flags = {"placeable-neutral", "player-creation", "placeable-off-grid"},
   collision_mask = {},
-  minable = {mining_time = 1, result = "spidertron"},
-  max_health = 3000,
+  minable = nil,
+  max_health = 250,
   resistances =
   {
     {
@@ -254,7 +254,7 @@ local drone =
   energy_per_hit_point = 1,
   guns = {},
   inventory_size = 12,
-  equipment_grid = "spidertron-equipment-grid",
+  equipment_grid = "companion-equipment-grid",
   trash_inventory_size = 0,
   height = 2,
   torso_rotation_speed = 0.05,
@@ -376,8 +376,8 @@ local drone_item =
 {
   type = "item",
   name = "companion",
-  icon = "__base__/graphics/icons/personal-roboport-equipment.png",
-  icon_size = 64, icon_mipmaps = 4,
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
   subgroup = "equipment",
   order = "e[robotics]-a[personal-roboport-equipment]",
   stack_size = 20,
@@ -387,7 +387,7 @@ local drone_item =
 local gun =
 {
   type = "active-defense-equipment",
-  name = "drone-defense-equipment",
+  name = "companion-defense-equipment",
   sprite =
   {
     filename = "__base__/graphics/equipment/personal-laser-defense-equipment.png",
@@ -411,8 +411,9 @@ local gun =
   attack_parameters =
   {
     type = "beam",
-    cooldown = 123,
-    range = 25,
+    cooldown = 30,
+    cooldown_deviation = 0.1,
+    range = 21,
     --source_direction_count = 64,
     --source_offset = {0, -3.423489 / 4},
     damage_modifier = 1,
@@ -437,16 +438,16 @@ local gun =
   },
 
   automatic = true,
-  categories = {"armor"}
+  categories = {"companion"}
 }
 
 local gun_item =
 {
   type = "item",
-  name = "drone-defense-equipment",
-  icon = "__base__/graphics/icons/personal-roboport-equipment.png",
-  icon_size = 64, icon_mipmaps = 4,
-  placed_as_equipment_result = "drone-defense-equipment",
+  name = "companion-defense-equipment",
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
+  placed_as_equipment_result = "companion-defense-equipment",
   subgroup = "equipment",
   order = "e[robotics]-a[personal-roboport-equipment]",
   default_request_amount = 1,
@@ -457,8 +458,8 @@ local plasma_projectile =
 {
   type = "projectile",
   name = "companion-projectile",
-  icon = "__base__/graphics/icons/destroyer.png",
-  icon_size = 64, icon_mipmaps = 4,
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
   flags = {"not-on-map"},
   subgroup = "explosions",
   height = 1.4,
@@ -468,9 +469,10 @@ local plasma_projectile =
   max_speed = 0.5,
   turn_speed = 0.001,
   turning_speed_increases_exponentially_with_projectile_speed = true,
-  collision_mask = {"player-layer", "object-layer"},
   collision_box = {{-0.1, -0.1},{0.1, 0.1}},
-  force_condition = "not-same",
+  speed_modifier = {1, 0.707},
+  hit_at_collision_position = true,
+  force_condition = "enemy",
   action =
   {
     type = "direct",
@@ -492,6 +494,104 @@ local plasma_projectile =
   },
 }
 
+local companion_grid =
+{
+  type = "equipment-grid",
+  name = "companion-equipment-grid",
+  width = 10,
+  height = 2,
+  equipment_categories = {"companion"}
+}
+
+
+local shield =
+{
+  type = "energy-shield-equipment",
+  name = "companion-shield-equipment",
+  sprite =
+  {
+    filename = "__base__/graphics/equipment/energy-shield-equipment.png",
+    width = 64,
+    height = 64,
+    priority = "medium"
+  },
+  shape =
+  {
+    width = 2,
+    height = 2,
+    type = "full"
+  },
+  max_shield_value = 250,
+  energy_source =
+  {
+    type = "electric",
+    buffer_capacity = "60J",
+    input_flow_limit = "12W",
+    usage_priority = "primary-input"
+  },
+  energy_per_shield = "1J",
+  categories = {"companion"}
+}
+
+local shield_item =
+{
+  type = "item",
+  name = "companion-shield-equipment",
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
+  placed_as_equipment_result = "companion-shield-equipment",
+  subgroup = "equipment",
+  order = "e[robotics]-a[personal-roboport-equipment]",
+  default_request_amount = 1,
+  stack_size = 20
+}
+
+local battery =
+{
+  type = "battery-equipment",
+  name = "companion-battery-equipment",
+  sprite =
+  {
+    filename = "__base__/graphics/equipment/battery-equipment.png",
+    width = 32,
+    height = 64,
+    priority = "medium"
+  },
+  shape =
+  {
+    width = 1,
+    height = 2,
+    type = "full"
+  },
+  energy_source =
+  {
+    type = "electric",
+    buffer_capacity = "200000MJ",
+    usage_priority = "tertiary"
+  },
+  categories = {"companion"}
+}
+
+local battery_item =
+{
+  type = "item",
+  name = "companion-battery-equipment",
+  icon = "__Companion_Drones__/drone-icon.png",
+  icon_size = 200,
+  placed_as_equipment_result = "companion-battery-equipment",
+  subgroup = "equipment",
+  order = "e[robotics]-a[personal-roboport-equipment]",
+  default_request_amount = 1,
+  stack_size = 20
+}
+
+local category =
+{
+  type = "equipment-category",
+  name = "companion"
+}
+
+
 data:extend
 {
   bot,
@@ -506,5 +606,12 @@ data:extend
   leg,
   gun,
   gun_item,
-  plasma_projectile
+  plasma_projectile,
+  companion_grid,
+  shield,
+  shield_item,
+  battery,
+  battery_item,
+  category
+
 }

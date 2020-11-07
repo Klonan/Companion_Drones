@@ -34,15 +34,19 @@ Companion.new = function(entity, player)
   setmetatable(companion, Companion.metatable)
   script_data.companions[entity.unit_number] = companion
   script.register_on_entity_destroyed(entity)
-  companion:say("I love you!")
   entity.operable = false
   entity.minable = false
   local grid = companion:get_grid()
   grid.put{name = "companion-roboport-equipment"}
-  grid.put{name = "drone-defense-equipment"}
+  grid.put{name = "companion-defense-equipment"}
+  grid.put{name = "companion-shield-equipment"}
+  grid.put{name = "companion-battery-equipment"}
 
   for k, equipment in pairs (grid.equipment) do
     equipment.energy = equipment.max_energy
+    if equipment.max_shield > 0 then
+      equipment.shield = equipment.max_shield
+    end
   end
 
   companion.flagged_for_equipment_changed = true
@@ -347,10 +351,9 @@ function Companion:set_job_destination(position, delay_update)
 end
 
 function Companion:attack(entity)
-  self:say("Attacking "..entity.name)
+  --self:say("Attacking "..entity.name)
   local position = self.entity.position
-  local orientation_offset = math.random()
-  for k = 0, 1, 1/6 do
+  for k, offset in pairs  {0, -0.25, 0.25} do
     local projectile = self.entity.surface.create_entity
     {
       name = "companion-projectile",
@@ -358,11 +361,13 @@ function Companion:attack(entity)
       speed = 0.05,
       force = self.entity.force,
       target = entity,
-      max_range = 50
+      max_range = 30
     }
+
+    projectile.orientation = projectile.orientation + offset
+
     local beam = self.entity.surface.create_entity{name = "inserter-beam", source = self.entity, target = self.entity, position = {0,0}}
     beam.set_beam_target(projectile)
-    projectile.orientation = orientation_offset + k
   end
 end
 
