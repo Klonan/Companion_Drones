@@ -74,7 +74,7 @@ local equipment =
   charging_energy = "10kW",
 
   robot_limit = 6,
-  construction_radius = (100/7) * 0.5,
+  construction_radius = (100/7) * 0.707,
   draw_construction_radius_visualization = false,
   spawn_and_station_height = -100000,
   spawn_and_station_shadow_height_offset = 0,

@@ -45,7 +45,8 @@ Companion.new = function(entity, player)
   end
 
   companion.flagged_for_equipment_changed = true
-  companion:schedule_tick_update(1)
+  companion:propose_tick_update(1)
+  companion:schedule_next_update()
   companion:add_passengers()
 
   entity.color = player.color
@@ -126,7 +127,7 @@ function Companion:move_to_robot_average()
   local count = 0
   for k, robot in pairs (self.robots) do
     local robot_position = robot.position
-    if robot.energy < 1000000 then
+    if robot.has_items_inside() or robot.energy < 1000000 then
       robot.energy = 1000000
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
@@ -136,7 +137,8 @@ function Companion:move_to_robot_average()
   if count == 0 then return end
   position.x = ((position.x / count))-- + our_position.x) / 2
   position.y = ((position.y / count))-- + our_position.y) / 2
-  self:set_job_destination(position)
+  self.entity.autopilot_destination = position
+  self:propose_tick_update(math.random(15, 25))
   return true
 end
 
@@ -148,16 +150,15 @@ function Companion:is_getting_full()
   return self:get_inventory()[7].valid_for_read
 end
 
+function Companion:propose_tick_update(ticks)
+  self.next_tick_update = math.min(math.ceil(ticks), (self.next_tick_update or math.huge))
+end
+
 function Companion:update()
 
   if self.flagged_for_equipment_changed then
     self.flagged_for_equipment_changed = nil
     self:check_robots()
-  end
-
-  if self.moving_to_destination then
-    self:schedule_tick_update(10)
-    return
   end
 
   self:update_busy_state()
@@ -167,13 +168,18 @@ function Companion:update()
     self:return_to_player()
   end
 
+  self:schedule_next_update()
+
 end
 
-function Companion:schedule_tick_update(ticks)
+local default_update_time = 60
+function Companion:schedule_next_update()
+  local ticks = self.next_tick_update or default_update_time
   local tick = game.tick + ticks
   script_data.tick_updates[tick] = script_data.tick_updates[tick] or {}
   script_data.tick_updates[tick][self.unit_number] = true
-  self:say(ticks)
+  --self:say(ticks)
+  self.next_tick_update = nil
 end
 
 function Companion:say(string)
@@ -205,18 +211,6 @@ function Companion:on_destroyed()
 
 end
 
-function Companion:on_player_placed_equipment(event)
-  self.flagged_for_equipment_changed = true
-  --self:schedule_tick_update(1)
-  self:say("Equipment added")
-end
-
-function Companion:on_player_removed_equipment(event)
-  self.flagged_for_equipment_changed = true
-  --self:schedule_tick_update(1)
-  self:say("Equipment removed")
-end
-
 function Companion:distance(position)
   local source = self.entity.position
   local x2 = position[1] or position.x
@@ -243,6 +237,7 @@ function Companion:try_to_shove_inventory()
     local inserted = self.player.insert(stack)
     if inserted == 0 then
       self.player.print({"inventory-restriction.player-inventory-full", stack.prototype.localised_name, {"inventory-full-message.main"}})
+      break
     else
       total_inserted = total_inserted + inserted
       if inserted == stack.count then
@@ -250,7 +245,6 @@ function Companion:try_to_shove_inventory()
       else
         stack.count = stack.count - inserted
       end
-      break
     end
   end
 
@@ -263,7 +257,8 @@ function Companion:try_to_shove_inventory()
       target_position = self.player.position,
       force = self.entity.force,
       position = self.entity.position,
-      duration = math.max(math.ceil(total_inserted / 5), 5)
+      duration = math.max(math.ceil(total_inserted / 5), 5),
+      max_length = 10
     }
   end
 end
@@ -285,6 +280,7 @@ function Companion:return_to_player()
     local rotated_y = 2 * math.cos(rads)
     target_position.x = target_position.x + offset_x + rotated_x
     target_position.y = target_position.y + offset_y + rotated_y
+    self:propose_tick_update(17)
   end
 
   local distance = self:distance(target_position)
@@ -293,7 +289,6 @@ function Companion:return_to_player()
     return
   end
 
-  self:schedule_tick_update(23)
 
   self:try_to_shove_inventory()
 
@@ -301,7 +296,6 @@ end
 
 function Companion:on_spider_command_completed()
   self.moving_to_destination = nil
-  --self:schedule_tick_update(49 + 30)
 end
 
 function Companion:take_item(item)
@@ -336,7 +330,7 @@ function Companion:set_job_destination(position, delay_update)
   local distance = self:distance(position) - 4
 
   local update = 0
-  if delay_update then update = update + 80 end
+  --if delay_update then update = update + 80 end
 
   if distance > 0 then
     local offset = self:get_offset(position, distance)
@@ -344,14 +338,10 @@ function Companion:set_job_destination(position, delay_update)
     self_position.y = self_position.y + offset[2]
     self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    update = update + (distance / 0.2)
+    update = update + (distance / 0.25)
+    self:propose_tick_update(update)
   end
 
-  if update == 0 then
-    update = 10
-  end
-
-  self:schedule_tick_update(update)
   self.is_busy = true
 end
 
@@ -427,35 +417,6 @@ local on_entity_destroyed = function(event)
   companion:on_destroyed()
 end
 
-local on_player_placed_equipment = function(event)
-
-  local player = game.get_player(event.player_index)
-  if player.opened_gui_type ~= defines.gui_type.entity then return end
-
-  local opened = player.opened
-  if not (opened and opened.valid) then return end
-
-  local companion = get_companion(opened.unit_number)
-  if not companion then return end
-
-  companion:on_player_placed_equipment(event)
-
-end
-
-local on_player_removed_equipment = function(event)
-  local player = game.get_player(event.player_index)
-  if player.opened_gui_type ~= defines.gui_type.entity then return end
-
-  local opened = player.opened
-  if not (opened and opened.valid) then return end
-
-  local companion = get_companion(opened.unit_number)
-  if not companion then return end
-
-  companion:on_player_removed_equipment(event)
-
-end
-
 local check_companion_updates = function(event)
   local tick_updates = script_data.tick_updates[event.tick]
   if not tick_updates then return end
@@ -500,7 +461,10 @@ local perform_job_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy then free_companion = companion end
+    if not companion.is_busy then
+      free_companion = companion
+      break
+    end
   end
   if not free_companion then return end
 
@@ -521,11 +485,14 @@ local perform_job_search = function(player, player_data)
 
 end
 
-local check_job_search = function()
+local job_mod = 3
+local check_job_search = function(event)
   for k, player in pairs (game.connected_players) do
-    local player_data = script_data.player_data[player.index]
-    if player_data then
-      perform_job_search(player, player_data)
+    if (k + event.tick) % job_mod == 0 then
+      local player_data = script_data.player_data[player.index]
+      if player_data then
+        perform_job_search(player, player_data)
+      end
     end
   end
 end
@@ -548,8 +515,6 @@ lib.events =
 {
   [defines.events.on_built_entity] = on_built_entity,
   [defines.events.on_entity_destroyed] = on_entity_destroyed,
-  --[defines.events.on_player_placed_equipment] = on_player_placed_equipment,
-  --[defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_tick] = on_tick,
   [defines.events.on_spider_command_completed] = on_spider_command_completed,
 }
