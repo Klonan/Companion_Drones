@@ -39,6 +39,7 @@ Companion.new = function(entity, player)
   entity.minable = false
   local grid = companion:get_grid()
   grid.put{name = "companion-roboport-equipment"}
+  grid.put{name = "drone-defense-equipment"}
 
   for k, equipment in pairs (grid.equipment) do
     equipment.energy = equipment.max_energy
@@ -345,6 +346,26 @@ function Companion:set_job_destination(position, delay_update)
   self.is_busy = true
 end
 
+function Companion:attack(entity)
+  self:say("Attacking "..entity.name)
+  local position = self.entity.position
+  local orientation_offset = math.random()
+  for k = 0, 1, 1/6 do
+    local projectile = self.entity.surface.create_entity
+    {
+      name = "companion-projectile",
+      position = {position.x, position.y - 1.5},
+      speed = 0.05,
+      force = self.entity.force,
+      target = entity,
+      max_range = 50
+    }
+    local beam = self.entity.surface.create_entity{name = "inserter-beam", source = self.entity, target = self.entity, position = {0,0}}
+    beam.set_beam_target(projectile)
+    projectile.orientation = orientation_offset + k
+  end
+end
+
 function Companion:try_to_find_work(search_area)
 
   local entities
@@ -509,6 +530,30 @@ local on_spider_command_completed = function(event)
   companion:on_spider_command_completed()
 end
 
+
+--[[effect_id :: string: The effect_id specified in the trigger effect.
+surface_index :: uint: The surface the effect happened on.
+source_position :: Position (optional)
+source_entity :: LuaEntity (optional)
+target_position :: Position (optional)
+target_entity :: LuaEntity (optional)]]
+local on_script_trigger_effect = function(event)
+  local id = event.effect_id
+  if id ~= "companion-attack" then return end
+
+  local source_entity = event.source_entity
+  if not (source_entity and source_entity.valid) then
+    return
+  end
+
+  local companion = get_companion(source_entity.unit_number)
+  if companion then
+    companion:attack(event.target_entity)
+  end
+
+
+end
+
 local lib = {}
 
 lib.events =
@@ -517,6 +562,7 @@ lib.events =
   [defines.events.on_entity_destroyed] = on_entity_destroyed,
   [defines.events.on_tick] = on_tick,
   [defines.events.on_spider_command_completed] = on_spider_command_completed,
+  [defines.events.on_script_trigger_effect] = on_script_trigger_effect,
 }
 
 lib.on_load = function()

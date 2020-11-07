@@ -384,6 +384,114 @@ local drone_item =
   place_result = "companion"
 }
 
+local gun =
+{
+  type = "active-defense-equipment",
+  name = "drone-defense-equipment",
+  sprite =
+  {
+    filename = "__base__/graphics/equipment/personal-laser-defense-equipment.png",
+    width = 64,
+    height = 64,
+    priority = "medium"
+  },
+  shape =
+  {
+    width = 2,
+    height = 2,
+    type = "full"
+  },
+  energy_source =
+  {
+    type = "electric",
+    usage_priority = "secondary-input",
+    buffer_capacity = "10000MJ"
+  },
+
+  attack_parameters =
+  {
+    type = "beam",
+    cooldown = 123,
+    range = 25,
+    --source_direction_count = 64,
+    --source_offset = {0, -3.423489 / 4},
+    damage_modifier = 1,
+    ammo_type =
+    {
+      category = "laser",
+      energy_consumption = "1J",
+      action =
+      {
+        type = "direct",
+        action_delivery =
+        {
+          type = "instant",
+          target_effects =
+          {
+            type = "script",
+            effect_id = "companion-attack"
+          }
+        }
+      },
+    }
+  },
+
+  automatic = true,
+  categories = {"armor"}
+}
+
+local gun_item =
+{
+  type = "item",
+  name = "drone-defense-equipment",
+  icon = "__base__/graphics/icons/personal-roboport-equipment.png",
+  icon_size = 64, icon_mipmaps = 4,
+  placed_as_equipment_result = "drone-defense-equipment",
+  subgroup = "equipment",
+  order = "e[robotics]-a[personal-roboport-equipment]",
+  default_request_amount = 1,
+  stack_size = 20
+}
+
+local plasma_projectile =
+{
+  type = "projectile",
+  name = "companion-projectile",
+  icon = "__base__/graphics/icons/destroyer.png",
+  icon_size = 64, icon_mipmaps = 4,
+  flags = {"not-on-map"},
+  subgroup = "explosions",
+  height = 1.4,
+  rotatable = true,
+  animation = nil,
+  acceleration = 0.005,
+  max_speed = 0.5,
+  turn_speed = 0.001,
+  turning_speed_increases_exponentially_with_projectile_speed = true,
+  collision_mask = {"player-layer", "object-layer"},
+  collision_box = {{-0.1, -0.1},{0.1, 0.1}},
+  force_condition = "not-same",
+  action =
+  {
+    type = "direct",
+    action_delivery =
+    {
+      type = "instant",
+      target_effects =
+      {
+        {
+          type = "create-entity",
+          entity_name = "explosion"
+        },
+        {
+          type = "damage",
+          damage = {amount = 10, type = "laser"}
+        },
+      }
+    }
+  },
+}
+
 data:extend
 {
   bot,
@@ -395,5 +503,8 @@ data:extend
   inserter_beam,
   drone,
   drone_item,
-  leg
+  leg,
+  gun,
+  gun_item,
+  plasma_projectile
 }
