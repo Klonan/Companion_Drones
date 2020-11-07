@@ -10,7 +10,7 @@ bot.energy_per_move = "1J"
 bot.min_to_charge = 0
 bot.max_to_charge = 0
 bot.working_sound = nil
---bot.minable = nil
+bot.minable = {name = "fish", amount = 0, mining_time = 1}
 bot.selection_box = {{-0.25,-0.25}, {0.25,0.25}}
 bot.cargo_centered = {0, -1}
 bot.selectable_in_game = false
@@ -30,6 +30,10 @@ bot.shadow_working = util.empty_sprite()
 bot.sparks = util.empty_sprite()
 bot.smoke = nil
 bot.water_reflection = nil
+bot.placeable_by =
+{
+  {item = "construction-robot", count = 0}
+}
 
 local bot_item =
 {
@@ -39,7 +43,7 @@ local bot_item =
   icon_size = 200,
   subgroup = "logistic-network",
   order = "a[robot]-b[construction-robot]",
-  place_result = "companion-construction-robot",
+  --place_result = "companion-construction-robot",
   stack_size = 50
 }
 

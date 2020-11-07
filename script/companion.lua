@@ -8,6 +8,20 @@ local script_data =
   search_schedule = {}
 }
 
+local repair_tools
+local get_repair_tools = function()
+  if repair_tools then
+    return repair_tools
+  end
+  repair_tools = {}
+  for k, item in pairs (game.item_prototypes) do
+    if item.type == "repair-tool" then
+      repair_tools[item.name] = {name = item.name, count = 1}
+    end
+  end
+  return repair_tools
+end
+
 local get_companion = function(unit_number)
   return unit_number and script_data.companions[unit_number]
 end
@@ -132,7 +146,7 @@ function Companion:move_to_robot_average()
   local count = 0
   for k, robot in pairs (self.robots) do
     local robot_position = robot.position
-    if robot.has_items_inside() or robot.energy < 1000000 then
+    if not robot.get_inventory(defines.inventory.robot_cargo).is_empty() or robot.energy < 1000000 then
       robot.energy = 1000000
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
@@ -156,6 +170,7 @@ function Companion:is_getting_full()
 end
 
 function Companion:propose_tick_update(ticks)
+  if ticks < 1 then error("WTF?") end
   self.next_tick_update = math.min(math.ceil(ticks), (self.next_tick_update or math.huge))
 end
 
@@ -234,6 +249,17 @@ function Companion:get_first_stack()
 end
 
 function Companion:try_to_shove_inventory()
+
+  for k, robot in pairs (self.robots) do
+    if robot.energy == 1000000 then
+      local inventory = robot.get_inventory(defines.inventory.robot_repair)
+      if inventory[1].valid_for_read then
+        self.entity.insert(inventory[1])
+        inventory[1].clear()
+      end
+    end
+  end
+
   local inventory = self:get_inventory()
   local total_inserted = 0
   for k = 1, #inventory do
@@ -309,6 +335,19 @@ function Companion:take_item(item)
   local removed = self.player.remove_item({name = item.name, count = count})
   if removed == 0 then return end
   inventory.insert({name = item.name, count = removed})
+
+  self.entity.surface.create_entity
+  {
+    name = "inserter-beam",
+    source = self.entity,
+    target = self.player.character,
+    target_position = self.player.position,
+    force = self.entity.force,
+    position = self.entity.position,
+    duration = math.max(math.ceil(removed / 5), 5),
+    max_length = 10
+  }
+
   return removed >= item.count
 end
 
@@ -383,23 +422,25 @@ function Companion:try_to_find_work(search_area)
   end
 
   local attempted_ghost_names = {}
+  local attempted_upgrade_names = {}
+  local repair_failed = false
   local max_item_type_count = 6
   local force = self.entity.force
   for k, entity in pairs (entities) do
-
+    local entity_force = entity.force
     if deconstruction_only or entity.to_be_deconstructed() then
       if entity.type ~= "cliff" then
-        if entity.force == force or entity.force.name == "neutral" then
+        if entity_force == force or entity_force.name == "neutral" then
           self:set_job_destination(entity.position, true)
           return
         end
       end
     end
 
-    if not deconstruction_only then
+    if (not deconstruction_only) and entity_force == force then
 
       if entity.type == "entity-ghost" then
-        if not attempted_ghost_names[entity.ghost_name] and entity.force == force then
+        if not attempted_ghost_names[entity.ghost_name] then
           local item = entity.ghost_prototype.items_to_place_this[1]
           local count = self.player.get_item_count(item.name)
           if count >= item.count then
@@ -414,6 +455,46 @@ function Companion:try_to_find_work(search_area)
             end
           end
           attempted_ghost_names[entity.ghost_name] = true
+        end
+      end
+
+      if entity.to_be_upgraded() then
+        local upgrade_target = entity.get_upgrade_target()
+        if not attempted_upgrade_names[upgrade_target.name] then
+          local item = upgrade_target.items_to_place_this[1]
+          local count = self.player.get_item_count(item.name)
+          if count >= item.count then
+            if self:take_item(item) then
+              if not self.moving_to_destination then
+                self:set_job_destination(entity.position, true)
+              end
+              max_item_type_count = max_item_type_count - 1
+              if max_item_type_count <= 0 then
+                return
+              end
+            end
+          end
+          attempted_upgrade_names[upgrade_target.name] = true
+        end
+      end
+
+      if not repair_failed and (entity.get_health_ratio() and entity.get_health_ratio() < 1) then
+        local repair_item
+        for k, item in pairs (get_repair_tools()) do
+          local count = self.player.get_item_count(item.name)
+          if count >= item.count then
+            repair_item = item
+            break
+          end
+        end
+        if repair_item then
+          if self:take_item(repair_item) then
+            if not self.moving_to_destination then
+              self:set_job_destination(entity.position, true)
+            end
+          end
+        else
+          repair_failed = true
         end
       end
 
