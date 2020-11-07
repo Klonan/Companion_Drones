@@ -154,7 +154,7 @@ function Companion:update_busy_state()
 end
 
 function Companion:is_getting_full()
-  return self:get_inventory()[7].valid_for_read
+  return self:get_inventory()[11].valid_for_read
 end
 
 function Companion:propose_tick_update(ticks)

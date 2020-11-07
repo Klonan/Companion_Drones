@@ -1,8 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.3
-bot.max_speed = 0.3
+bot.speed = 0.33
+bot.max_speed = 0.33
 bot.max_energy = "1000000J"
 bot.energy_per_tick = "0J"
 bot.speed_multiplier_when_out_of_energy = 2
@@ -258,7 +258,7 @@ local drone =
   --dying_explosion = "spidertron-explosion",
   energy_per_hit_point = 1,
   guns = {},
-  inventory_size = 12,
+  inventory_size = 20,
   equipment_grid = "companion-equipment-grid",
   trash_inventory_size = 0,
   height = 2,
@@ -281,8 +281,8 @@ local drone =
     {
       { -- 1
         leg = "companion-leg",
-        mount_position = {0, 0},
-        ground_position = {0, 0},
+        mount_position = {0, -1},
+        ground_position = {0, -1},
         blocking_legs = {},
         leg_hit_the_ground_trigger = nil
       }
@@ -472,7 +472,7 @@ local plasma_projectile =
   rotatable = true,
   animation = nil,
   acceleration = 0.005,
-  max_speed = 0.5,
+  max_speed = 0.33,
   turn_speed = 0.001,
   turning_speed_increases_exponentially_with_projectile_speed = true,
   collision_box = {{-0.1, -0.1},{0.1, 0.1}},
