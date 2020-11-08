@@ -472,16 +472,22 @@ function Companion:try_to_find_work(search_area)
       if entity.to_be_upgraded() then
         local upgrade_target = entity.get_upgrade_target()
         if not attempted_upgrade_names[upgrade_target.name] then
-          local item = upgrade_target.items_to_place_this[1]
-          local count = self.player.get_item_count(item.name)
-          if count >= item.count then
-            if self:take_item(item) then
-              if not self.moving_to_destination then
-                self:set_job_destination(entity.position, true)
-              end
-              max_item_type_count = max_item_type_count - 1
-              if max_item_type_count <= 0 then
-                return
+          if upgrade_target.name == entity.name then
+            if not self.moving_to_destination then
+              self:set_job_destination(entity.position, true)
+            end
+          else
+            local item = upgrade_target.items_to_place_this[1]
+            local count = self.player.get_item_count(item.name)
+            if count >= item.count then
+              if self:take_item(item) then
+                if not self.moving_to_destination then
+                  self:set_job_destination(entity.position, true)
+                end
+                max_item_type_count = max_item_type_count - 1
+                if max_item_type_count <= 0 then
+                  return
+                end
               end
             end
           end
