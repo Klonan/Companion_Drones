@@ -399,6 +399,11 @@ function Companion:attack(entity)
   end
 end
 
+local ghost_types =
+{
+  ["entity-ghost"] = true,
+  ["tile-ghost"] = true
+}
 function Companion:try_to_find_work(search_area)
 
   local entities
@@ -428,7 +433,7 @@ function Companion:try_to_find_work(search_area)
 
     if (not deconstruction_only) and entity_force == force then
 
-      if entity.type == "entity-ghost" then
+      if ghost_types[entity.type] then
         if not attempted_ghost_names[entity.ghost_name] then
           local item = entity.ghost_prototype.items_to_place_this[1]
           local count = self.player.get_item_count(item.name)
