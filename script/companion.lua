@@ -495,7 +495,7 @@ function Companion:try_to_find_work(search_area)
         end
       end
 
-      if not repair_failed and (entity.get_health_ratio() and entity.get_health_ratio() < 1) then
+      if not repair_failed and (not entity.has_flag("not-repairable") and entity.get_health_ratio() and entity.get_health_ratio() < 1) then
         local repair_item
         for k, item in pairs (get_repair_tools()) do
           local count = self.player.get_item_count(item.name)
