@@ -81,7 +81,7 @@ local equipment =
   robot_limit = 4,
   construction_radius = (100/7) * 0.5,
   draw_construction_radius_visualization = false,
-  spawn_and_station_height = -100000,
+  spawn_and_station_height = -1000,
   spawn_and_station_shadow_height_offset = 0,
   charge_approach_distance = 0,
   robots_shrink_when_entering_and_exiting = true,
@@ -103,7 +103,7 @@ local equipment =
   charging_station_count = 0,
   charging_distance = 0,
   charging_threshold_distance = 0,
-  robot_vertical_acceleration = -0.01,
+  robot_vertical_acceleration = -100,
   categories = {"companion"}
 }
 

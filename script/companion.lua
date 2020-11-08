@@ -239,16 +239,6 @@ end
 
 function Companion:try_to_shove_inventory()
 
-  for k, robot in pairs (self.robots) do
-    if robot.energy == 1000000 then
-      local inventory = robot.get_inventory(defines.inventory.robot_repair)
-      if inventory[1].valid_for_read then
-        self.entity.insert(inventory[1])
-        inventory[1].clear()
-      end
-    end
-  end
-
   local inventory = self:get_inventory()
   local total_inserted = 0
   for k = 1, #inventory do
@@ -371,7 +361,7 @@ function Companion:set_job_destination(position, delay_update)
     self_position.y = self_position.y + offset[2]
     self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    update = update + (distance / 0.25)
+    update = update + math.ceil(distance / 0.25)
     self:propose_tick_update(update)
   end
 
@@ -404,6 +394,14 @@ local ghost_types =
   ["entity-ghost"] = true,
   ["tile-ghost"] = true
 }
+
+local item_request_types =
+{
+  ["entity-ghost"] = true,
+  ["item-request-proxy"] = true
+
+}
+
 function Companion:try_to_find_work(search_area)
 
   local entities
@@ -418,9 +416,11 @@ function Companion:try_to_find_work(search_area)
   local attempted_ghost_names = {}
   local attempted_upgrade_names = {}
   local attempted_cliff_names = {}
+  local attempted_proxy_items = {}
   local repair_failed = false
-  local max_item_type_count = 6
+  local max_item_type_count = table_size(self.robots)
   local force = self.entity.force
+
   for k, entity in pairs (entities) do
     local entity_force = entity.force
     if deconstruction_only or entity.to_be_deconstructed() then
@@ -512,6 +512,27 @@ function Companion:try_to_find_work(search_area)
           end
         else
           repair_failed = true
+        end
+      end
+
+      if item_request_types[entity.type] then
+        local items = entity.item_requests
+        for name, item_count in pairs (items) do
+          if not attempted_proxy_items[name] then
+            local count = self.player.get_item_count(name)
+            if count >= item_count then
+              if self:take_item({name = name, count = item_count}) then
+                if not self.moving_to_destination then
+                  self:set_job_destination(entity.position, true)
+                end
+                max_item_type_count = max_item_type_count - 1
+                if max_item_type_count <= 0 then
+                  return
+                end
+              end
+            end
+          end
+          attempted_proxy_items[name] = true
         end
       end
 
