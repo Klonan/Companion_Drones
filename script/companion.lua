@@ -417,13 +417,30 @@ function Companion:try_to_find_work(search_area)
 
   local attempted_ghost_names = {}
   local attempted_upgrade_names = {}
+  local attempted_cliff_names = {}
   local repair_failed = false
   local max_item_type_count = 6
   local force = self.entity.force
   for k, entity in pairs (entities) do
     local entity_force = entity.force
     if deconstruction_only or entity.to_be_deconstructed() then
-      if entity.type ~= "cliff" then
+      if entity.type == "cliff" then
+        if not deconstruction_only and not attempted_cliff_names[entity.name] then
+          local item = entity.prototype.cliff_explosive_prototype
+          if item and self.player.get_item_count(item) > 0 then
+            if self:take_item({name = item, count = 1}) then
+              if not self.moving_to_destination then
+                self:set_job_destination(entity.position, true)
+              end
+              max_item_type_count = max_item_type_count - 1
+              if max_item_type_count <= 0 then
+                return
+              end
+            end
+          end
+          attempted_cliff_names[entity.name] = true
+        end
+      else
         if entity_force == force or entity_force.name == "neutral" then
           self:set_job_destination(entity.position, true)
           return
