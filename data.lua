@@ -76,7 +76,7 @@ local equipment =
   },
 
   charging_energy = "10kW",
-  spawn_minimum = "10W",
+  spawn_minimum = "0W",
 
   robot_limit = 4,
   construction_radius = (100/7) * 0.5,
@@ -207,7 +207,7 @@ local drone =
   friction_force = 1,
   flags = {"placeable-neutral", "player-creation", "placeable-off-grid"},
   collision_mask = {},
-  minable = nil,
+  minable = {result = "companion", mining_time = 1},
   max_health = 250,
   resistances =
   {
@@ -288,8 +288,7 @@ local drone =
       }
     },
     military_target = "spidertron-military-target"
-  },
-  minable = {item = "companion", count = 1, mining_time = 1}
+  }
 }
 drone.graphics_set.render_layer = "air-entity-info-icon"
 drone.graphics_set.base_render_layer = "air-object"
@@ -380,13 +379,13 @@ table.insert(layers, 1,
 
 local drone_item =
 {
-  type = "item",
+  type = "item-with-entity-data",
   name = "companion",
   icon = "__Companion_Drones__/drone-icon.png",
   icon_size = 200,
   subgroup = "equipment",
   order = "e[robotics]-a[personal-roboport-equipment]",
-  stack_size = 20,
+  stack_size = 1,
   place_result = "companion"
 }
 

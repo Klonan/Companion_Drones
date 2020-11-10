@@ -78,6 +78,20 @@ function Companion:add_passengers()
   self.passenger = passenger
 end
 
+function Companion:clear_passengers()
+
+  if self.driver and self.driver.valid then
+    self.driver.destroy()
+    self.driver = nil
+  end
+
+  if self.passenger and self.passenger.valid then
+    self.passenger.destroy()
+    self.passenger = nil
+  end
+
+end
+
 function Companion:check_robots()
 
   local grid = self:get_grid()
@@ -196,14 +210,8 @@ function Companion:say(string)
 end
 
 function Companion:on_destroyed()
-  if self.driver and self.driver.valid then
-    self.driver.destroy()
-    self.driver = nil
-  end
-  if self.passenger and self.passenger.valid then
-    self.passenger.destroy()
-    self.passenger = nil
-  end
+
+  self:clear_passengers()
 
   for k, robot in pairs (self.robots) do
     robot.destroy()
@@ -269,6 +277,15 @@ function Companion:try_to_shove_inventory()
       position = self.entity.position,
       duration = math.max(math.ceil(total_inserted / 5), 5),
       max_length = 10
+    }
+  end
+
+  if self.flagged_for_mine then
+    self.entity.mine
+    {
+      inventory = self.player.character and self.player.character.get_main_inventory() or nil,
+      force = true,
+      ignore_minable = true
     }
   end
 end
@@ -550,6 +567,64 @@ function Companion:on_player_removed_equipment(event)
   self:say("Equipment removed")
 end
 
+local get_opened_companion = function(player_index)
+  local player = game.get_player(player_index)
+  if not player then return end
+
+  if player.opened_gui_type ~= defines.gui_type.entity then return end
+
+  local opened = player.opened
+  if not (opened and opened.valid) then return end
+
+  return get_companion(opened.unit_number)
+end
+
+local companion_gui_functions =
+{
+  return_home = function(event)
+    local companion = get_opened_companion(event.player_index)
+    if companion then
+      companion:say("SIR YES SIR")
+      companion:return_to_player()
+      companion.flagged_for_mine = true
+    end
+  end
+}
+
+local on_gui_click = function(event)
+  local gui = event.element
+  if not (gui and gui.valid) then return end
+  local function_name = gui.tags.companion_function
+  if not function_name then return end
+  local action = companion_gui_functions[function_name]
+  if action then action(event) end
+end
+
+local make_player_gui = function(player)
+  local gui = player.gui.relative
+  if gui.companion_gui then return end
+
+  local frame = gui.add
+  {
+    name = "companion_gui",
+    type = "frame",
+    caption = "Companion control",
+    anchor =
+    {
+      position = defines.relative_gui_position.right,
+      name = "companion",
+      gui = defines.relative_gui_type.spider_vehicle_gui
+    }
+  }
+
+  local inner = frame.add{type = "frame", direction = "vertical", style = "window_content_frame_deep"}
+  inner.style.horizontally_stretchable = true
+  local button = inner.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
+  button.style.horizontally_stretchable = true
+
+
+end
+
 
 local on_built_entity = function(event)
   local entity = event.created_entity
@@ -563,6 +638,8 @@ local on_built_entity = function(event)
   if not player then return end
 
   Companion.new(entity, player)
+
+  make_player_gui(player)
 
 end
 
@@ -741,7 +818,8 @@ lib.events =
   [defines.events.on_script_trigger_effect] = on_script_trigger_effect,
   [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
-  [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted
+  [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
+  [defines.events.on_gui_click] = on_gui_click,
 
 }
 
