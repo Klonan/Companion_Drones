@@ -819,8 +819,7 @@ lib.events =
   [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
-  [defines.events.on_gui_click] = on_gui_click,
-
+  [defines.events.on_gui_click] = on_gui_click
 }
 
 lib.on_load = function()
@@ -832,6 +831,15 @@ end
 
 lib.on_init = function()
   global.companion = global.companion or script_data
+  if remote.interfaces["freeplay"] then
+    local items = remote.call("freeplay", "get_created_items")
+    items["companion"] = 2
+    items["companion-roboport-equipment"] = 2
+    items["companion-reactor-equipment"] = 2
+    items["companion-defense-equipment"] = 2
+    items["companion-shield-equipment"] = 2
+    remote.call("freeplay", "set_created_items", items)
+  end
 end
 
 return lib
