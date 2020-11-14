@@ -43,7 +43,10 @@ Companion.new = function(entity, player)
     entity = entity,
     player = player,
     unit_number = entity.unit_number,
-    robots = {}
+    robots = {},
+    active_construction = true,
+    active_combat = true,
+    follow_range = 6
   }
   setmetatable(companion, Companion.metatable)
   script_data.companions[entity.unit_number] = companion
@@ -311,7 +314,7 @@ function Companion:return_to_player()
   end
 
   local distance = self:distance(target_position)
-  if distance > 6 then
+  if distance > self.follow_range then
     self.entity.autopilot_destination = target_position
     return
   end
@@ -341,7 +344,7 @@ function Companion:take_item(item)
     force = self.entity.force,
     position = self.entity.position,
     duration = math.max(math.ceil(removed / 5), 5),
-    max_length = 10
+    max_length = self.follow_range + 4
   }
 
   return removed >= item.count
@@ -403,6 +406,9 @@ function Companion:attack(entity)
 
     local beam = self.entity.surface.create_entity{name = "inserter-beam", source = self.entity, target = self.entity, position = {0,0}}
     beam.set_beam_target(projectile)
+  end
+  if false then
+    self.entity.autopilot_destination = {(position.x + entity.position.x) / 2, (position.y + entity.position.y) / 2}
   end
 end
 
@@ -567,6 +573,51 @@ function Companion:on_player_removed_equipment(event)
   self:say("Equipment removed")
 end
 
+local get_gui_by_tag
+get_gui_by_tag = function(gui, tag)
+
+  for k, v in pairs (gui.tags) do
+    if v == tag then
+      return gui
+    end
+  end
+
+  for k, child in pairs (gui.children) do
+    local gui = get_gui_by_tag(child, tag)
+    if gui then
+      return gui
+    end
+  end
+
+end
+
+function Companion:update_gui_based_on_settings(event)
+  local player = game.get_player(event.player_index)
+  if player ~= self.player then
+    player.opened = nil
+    self:say("DON'T TOUCH ME I BELONG TO "..self.player.name)
+    return
+  end
+
+  local gui = player.gui.relative.companion_gui
+  if not (gui and gui.valid) then
+    make_player_gui(player)
+  end
+
+  local combat_mode_switch = get_gui_by_tag(gui, "combat_mode_switch")
+  combat_mode_switch.switch_state = (self.active_combat and "right") or "left"
+
+  local construction_mode_switch = get_gui_by_tag(gui, "construction_mode_switch")
+  construction_mode_switch.switch_state = (self.active_construction and "right") or "left"
+
+  local follow_slider = get_gui_by_tag(gui, "follow_range_slider")
+  follow_slider.slider_value = self.follow_range
+
+  local follow_textfield = get_gui_by_tag(gui, "follow_range_textfield")
+  follow_textfield.text = tostring(self.follow_range)
+
+end
+
 local get_opened_companion = function(player_index)
   local player = game.get_player(player_index)
   if not player then return end
@@ -583,15 +634,47 @@ local companion_gui_functions =
 {
   return_home = function(event)
     local companion = get_opened_companion(event.player_index)
-    if companion then
-      companion:say("SIR YES SIR")
-      companion:return_to_player()
-      companion.flagged_for_mine = true
-    end
+    if not companion then return end
+    companion:say("SIR YES SIR")
+    companion:return_to_player()
+    companion.flagged_for_mine = true
+  end,
+  combat_mode_switch = function(event)
+    local companion = get_opened_companion(event.player_index)
+    if not companion then return end
+    local switch = event.element
+    companion.active_combat = switch.switch_state == "right"
+  end,
+  construction_mode_switch = function(event)
+    local companion = get_opened_companion(event.player_index)
+    if not companion then return end
+    local switch = event.element
+    companion.active_construction = switch.switch_state == "right"
+  end,
+  follow_range_slider = function(event)
+    local companion = get_opened_companion(event.player_index)
+    if not companion then return end
+    local slider = event.element
+    local number = math.min(math.max(2, slider.slider_value), 20)
+    companion.follow_range = number
+    local textfield = get_gui_by_tag(slider.parent, "follow_range_textfield")
+    textfield.text = tostring(number)
+  end,
+  follow_range_textfield = function(event)
+    local companion = get_opened_companion(event.player_index)
+    if not companion then return end
+    local textfield = event.element
+    local number = tonumber(textfield.text)
+    if not number then return end
+    if number > 20 then return end
+    if number < 2 then return end
+    companion.follow_range = number
+    local slider = get_gui_by_tag(textfield.parent, "follow_range_slider")
+    slider.slider_value = number
   end
 }
 
-local on_gui_click = function(event)
+local on_gui_event = function(event)
   local gui = event.element
   if not (gui and gui.valid) then return end
   local function_name = gui.tags.companion_function
@@ -614,17 +697,30 @@ local make_player_gui = function(player)
       position = defines.relative_gui_position.right,
       name = "companion",
       gui = defines.relative_gui_type.spider_vehicle_gui
-    }
+    },
+    direction = "vertical"
   }
 
-  local inner = frame.add{type = "frame", direction = "vertical", style = "window_content_frame_deep"}
+  local inner = frame.add{type = "frame", direction = "vertical", style = "inside_shallow_frame_with_padding"}
+  inner.style.padding = 4
   inner.style.horizontally_stretchable = true
-  local button = inner.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
+
+  local combat_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Combat mode"}
+  local switch = combat_mode_frame.add{type = "switch", left_label_caption = "Defensive", right_label_caption = "Aggressive", allow_none_state = false, switch_state = "left", tags = {companion_function = "combat_mode_switch"}}
+
+  local construction_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Construction mode"}
+  local switch = construction_mode_frame.add{type = "switch", left_label_caption = "Passive", right_label_caption = "Active", allow_none_state = false, switch_state = "left", tags = {companion_function = "construction_mode_switch"}}
+
+  local follow_range_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Follow distance"}
+  local follow_range_flow = follow_range_frame.add{type = "flow", style = "player_input_horizontal_flow", }
+
+  local slider = follow_range_flow.add{type = "slider", minimum_value = 2, maximum_value = 20, value = 6, value_step = 2, discrete_values = true, discrete_slider = true, style = "notched_slider", tags = {companion_function = "follow_range_slider"}}
+  local textfield = follow_range_flow.add{type = "textfield", style = "slider_value_textfield", text = 6, numeric = true, allow_decimal = true, allow_negative = false, lose_focus_on_confirm = true, tags = {companion_function = "follow_range_textfield"}}
+
+  local button = frame.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
   button.style.horizontally_stretchable = true
 
-
 end
-
 
 local on_built_entity = function(event)
   local entity = event.created_entity
@@ -693,7 +789,7 @@ local perform_job_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy and next(companion.robots) then
+    if not companion.is_busy and companion.active_construction and next(companion.robots) then
       free_companion = companion
       break
     end
@@ -807,6 +903,20 @@ local on_entity_settings_pasted = function(event)
 
 end
 
+local on_gui_opened = function(event)
+
+  local player = game.get_player(event.player_index)
+  if player.opened_gui_type ~= defines.gui_type.entity then return end
+
+  local opened = player.opened
+  if not (opened and opened.valid) then return end
+
+  local companion = get_companion(opened.unit_number)
+  if not companion then return end
+
+  companion:update_gui_based_on_settings(event)
+end
+
 local lib = {}
 
 lib.events =
@@ -819,7 +929,21 @@ lib.events =
   [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
-  [defines.events.on_gui_click] = on_gui_click
+
+  [defines.events.on_gui_checked_state_changed] = on_gui_event,
+  [defines.events.on_gui_click] = on_gui_event,
+  [defines.events.on_gui_elem_changed] = on_gui_event,
+  [defines.events.on_gui_selected_tab_changed] = on_gui_event,
+  [defines.events.on_gui_selection_state_changed] = on_gui_event,
+  [defines.events.on_gui_switch_state_changed] = on_gui_event,
+  [defines.events.on_gui_text_changed] = on_gui_event,
+  [defines.events.on_gui_value_changed] = on_gui_event,
+
+
+  --[defines.events.on_gui_confirmed] = on_gui_event,
+  --[defines.events.on_gui_closed] = on_gui_event,
+  --[defines.events.on_gui_location_changed] = on_gui_event,
+  [defines.events.on_gui_opened] = on_gui_opened,
 }
 
 lib.on_load = function()
