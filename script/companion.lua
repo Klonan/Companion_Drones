@@ -95,7 +95,11 @@ function Companion:clear_passengers()
 
 end
 
-function Companion:check_robots()
+function Companion:check_equipment()
+
+  if not self.flagged_for_equipment_changed then return end
+
+  self.flagged_for_equipment_changed = nil
 
   local grid = self:get_grid()
 
@@ -104,45 +108,53 @@ function Companion:check_robots()
 
   local robot_count = table_size(self.robots)
 
-  if robot_count == max_robots then return end
+  if robot_count ~= max_robots then
 
-  if robot_count > max_robots then
-    for k = 1, robot_count - max_robots do
-      local index, robot = next(self.robots)
-      if not index then break end
-      self.robots[index] = nil
-      robot.destroy()
+    if robot_count > max_robots then
+      for k = 1, robot_count - max_robots do
+        local index, robot = next(self.robots)
+        if not index then break end
+        self.robots[index] = nil
+        robot.destroy()
+      end
+    end
+
+    if robot_count < max_robots then
+      local surface = self.entity.surface
+      local position = self.entity.position
+      local force = self.entity.force
+      for k = 1, max_robots - robot_count do
+        local robot = surface.create_entity{name = "companion-construction-robot", position = position, force = force}
+        robot.logistic_network = network
+        self.robots[robot.unit_number] = robot
+        robot.destructible = false
+        robot.minable = false
+        self.entity.surface.create_entity
+        {
+          name = "inserter-beam",
+          position = self.entity.position,
+          target = robot,
+          source = self.entity,
+          force = self.entity.force,
+          source_offset = {0, 0}
+        }
+      end
+    end
+
+    self.can_construct = max_robots > 0
+  end
+
+  local can_attack = false
+
+  for k, equipment in pairs (grid.equipment) do
+    if equipment.type == "active-defense-equipment" then
+      can_attack = true
+      break
     end
   end
 
-  if robot_count < max_robots then
-    local surface = self.entity.surface
-    local position = self.entity.position
-    local force = self.entity.force
-    for k = 1, max_robots - robot_count do
-      local robot = surface.create_entity{name = "companion-construction-robot", position = position, force = force}
-      robot.logistic_network = network
-      self.robots[robot.unit_number] = robot
-      robot.destructible = false
-      robot.minable = false
-      self.entity.surface.create_entity
-      {
-        name = "inserter-beam",
-        position = self.entity.position,
-        target = robot,
-        source = self.entity,
-        force = self.entity.force,
-        source_offset = {0, 0}
-      }
-    end
-  end
+  self.can_attack = can_attack
 
-end
-
-function Companion:is_full()
-  local stack = self:get_first_stack()
-  if not (stack and stack.valid_for_read) then return end
-  return stack.count == stack.prototype.stack_size
 end
 
 function Companion:move_to_robot_average()
@@ -167,7 +179,7 @@ function Companion:move_to_robot_average()
 end
 
 function Companion:update_busy_state()
-  self.is_busy = self.moving_to_destination or self:move_to_robot_average()
+  self.is_busy = self.moving_to_destination or (game.tick - (self.last_attack_tick or 0) < 60) or self:move_to_robot_average()
 end
 
 function Companion:is_getting_full()
@@ -181,11 +193,7 @@ end
 
 function Companion:update()
 
-  if self.flagged_for_equipment_changed then
-    self.flagged_for_equipment_changed = nil
-    --self:say("Checking equipment")
-    self:check_robots()
-  end
+  self:check_equipment()
 
   self:update_busy_state()
   --self:say("U")
@@ -368,6 +376,25 @@ function Companion:get_offset(target_position, length)
     return {x1, y1}
 end
 
+function Companion:set_attack_destination(position)
+  local self_position = self.entity.position
+  local distance = self:distance(position) - 16
+
+  local update = 60
+
+  if distance > 0 then
+    local offset = self:get_offset(position, distance)
+    self_position.x = self_position.x + offset[1]
+    self_position.y = self_position.y + offset[2]
+    self.entity.autopilot_destination = self_position
+    self.moving_to_destination = true
+    update = update + math.ceil(distance / 0.25)
+    self:propose_tick_update(update)
+  end
+
+  self.is_busy = true
+end
+
 function Companion:set_job_destination(position, delay_update)
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
@@ -407,9 +434,9 @@ function Companion:attack(entity)
     local beam = self.entity.surface.create_entity{name = "inserter-beam", source = self.entity, target = self.entity, position = {0,0}}
     beam.set_beam_target(projectile)
   end
-  if false then
-    self.entity.autopilot_destination = {(position.x + entity.position.x) / 2, (position.y + entity.position.y) / 2}
-  end
+
+  self:set_attack_destination(entity.position)
+  self.last_attack_tick = game.tick
 end
 
 local ghost_types =
@@ -424,6 +451,26 @@ local item_request_types =
   ["item-request-proxy"] = true
 
 }
+
+local entities_with_force_type = {"unit", "character", "turret", "ammo-turret", "electric-turret", "fluid-turret", "radar", "unit-spawner", "spider-vehicle", "artillery-turret"}
+function Companion:try_to_find_targets(search_area)
+
+  local entities = self.entity.surface.find_entities_filtered
+  {
+    area = search_area,
+    type = entities_with_force_type
+  }
+
+  local our_force = self.entity.force
+  for k, entity in pairs (entities) do
+    local force = entity.force
+    if not (force == our_force or our_force.get_cease_fire(entity.force)) then
+      self:set_attack_destination(entity.position)
+    end
+  end
+
+
+end
 
 function Companion:try_to_find_work(search_area)
 
@@ -441,7 +488,7 @@ function Companion:try_to_find_work(search_area)
   local attempted_cliff_names = {}
   local attempted_proxy_items = {}
   local repair_failed = false
-  local max_item_type_count = table_size(self.robots)
+  local max_item_type_count = 10
   local force = self.entity.force
 
   for k, entity in pairs (entities) do
@@ -789,7 +836,7 @@ local perform_job_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy and companion.active_construction and next(companion.robots) then
+    if not companion.is_busy and companion.active_construction and companion.can_construct then
       free_companion = companion
       break
     end
@@ -813,6 +860,34 @@ local perform_job_search = function(player, player_data)
 
 end
 
+local perform_attack_search = function(player, player_data)
+
+  local free_companion
+  for k, companion in pairs (player_data.companions) do
+    if not companion.is_busy and companion.active_combat and companion.can_attack then
+      free_companion = companion
+      break
+    end
+  end
+  if not free_companion then return end
+
+  player_data.last_search_offset = player_data.last_search_offset + 1
+  local area = search_offsets[player_data.last_search_offset]
+  if not area then
+    player_data.last_search_offset = 0
+    return
+  end
+
+  local position = player.position
+  local search_area = {{area[1][1] + position.x, area[1][2] + position.y}, {area[2][1] + position.x, area[2][2] + position.y}}
+
+  free_companion:try_to_find_targets(search_area)
+
+  --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_search_offset}
+  --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_search_offset}
+
+end
+
 local job_mod = 3
 local check_job_search = function(event)
   for k, player in pairs (game.connected_players) do
@@ -820,6 +895,7 @@ local check_job_search = function(event)
       local player_data = script_data.player_data[player.index]
       if player_data then
         perform_job_search(player, player_data)
+        perform_attack_search(player, player_data)
       end
     end
   end
