@@ -429,7 +429,7 @@ function Companion:attack(entity)
       speed = 0.05,
       force = self.entity.force,
       target = entity,
-      max_range = 30
+      max_range = 55
     }
 
     projectile.orientation = projectile.orientation + offset
@@ -979,6 +979,16 @@ local on_entity_settings_pasted = function(event)
   if not companion then return end
 
   companion.flagged_for_equipment_changed = true
+
+  local source = event.source
+  if not (source and source.valid) then return end
+
+  local source_companion = get_companion(source.unit_number)
+  if not source_companion then return end
+
+  companion.active_combat = source_companion.active_combat
+  companion.active_construction = source_companion.active_construction
+  companion.follow_range = source_companion.follow_range
 
 end
 
