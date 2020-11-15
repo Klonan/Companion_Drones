@@ -46,7 +46,9 @@ Companion.new = function(entity, player)
     robots = {},
     active_construction = true,
     active_combat = true,
-    follow_range = 6
+    follow_range = 6,
+    flagged_for_equipment_changed = true,
+    last_attack_tick = 0
   }
   setmetatable(companion, Companion.metatable)
   script_data.companions[entity.unit_number] = companion
@@ -178,12 +180,11 @@ function Companion:move_to_robot_average()
   return true
 end
 
-function Companion:update_busy_state()
-  self.is_busy = self.moving_to_destination or (game.tick - (self.last_attack_tick or 0) < 60) or self:move_to_robot_average()
-end
-
-function Companion:is_getting_full()
-  return self:get_inventory()[11].valid_for_read
+function Companion:update_state_flags()
+  self.is_in_combat = (game.tick - self.last_attack_tick) < 60
+  self.is_on_low_health = self.entity.get_health_ratio() < 0.5
+  self.is_busy_for_construction = self.is_in_combat or self:move_to_robot_average()
+  self.is_getting_full = self:get_inventory()[11].valid_for_read
 end
 
 function Companion:propose_tick_update(ticks)
@@ -195,10 +196,10 @@ function Companion:update()
 
   self:check_equipment()
 
-  self:update_busy_state()
+  self:update_state_flags()
   --self:say("U")
 
-  if self:is_getting_full() or not self.is_busy then
+  if self.is_getting_full or self.is_on_low_health or not (self.is_in_combat or self.is_busy_for_construction or self.moving_to_destination) then
     self:return_to_player()
   end
 
@@ -382,17 +383,19 @@ function Companion:set_attack_destination(position)
 
   local update = 60
 
-  if distance > 0 then
+  if math.abs(distance) > 2 then
     local offset = self:get_offset(position, distance)
     self_position.x = self_position.x + offset[1]
+
     self_position.y = self_position.y + offset[2]
     self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    update = update + math.ceil(distance / 0.25)
+    update = update + math.ceil(math.abs(distance) / 0.25)
     self:propose_tick_update(update)
   end
 
-  self.is_busy = true
+  self.last_attack_tick = game.tick
+  self.is_in_combat = true
 end
 
 function Companion:set_job_destination(position, delay_update)
@@ -412,7 +415,7 @@ function Companion:set_job_destination(position, delay_update)
     self:propose_tick_update(update)
   end
 
-  self.is_busy = true
+  self.is_busy_for_construction = true
 end
 
 function Companion:attack(entity)
@@ -836,7 +839,7 @@ local perform_job_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy and companion.active_construction and companion.can_construct then
+    if not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
       free_companion = companion
       break
     end
@@ -864,7 +867,7 @@ local perform_attack_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy and companion.active_combat and companion.can_attack then
+    if not companion.is_in_combat and companion.active_combat and companion.can_attack then
       free_companion = companion
       break
     end
