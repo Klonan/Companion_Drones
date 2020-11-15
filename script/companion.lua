@@ -313,10 +313,10 @@ function Companion:return_to_player()
     local orientation = walking_state.direction / 8
     local rads = (orientation - 0.5) * math.pi * 2
     local unit_number = self.unit_number
-    local offset_x = math.random(-4, 4)
-    local offset_y = math.random(-4, 4)
-    local rotated_x = -2 * math.sin(rads)
-    local rotated_y = 2 * math.cos(rads)
+    local offset_x = math.random(-self.follow_range, self.follow_range)
+    local offset_y = math.random(-self.follow_range, self.follow_range)
+    local rotated_x = -(self.follow_range / 2) * math.sin(rads)
+    local rotated_y = (self.follow_range / 2) * math.cos(rads)
     target_position.x = target_position.x + offset_x + rotated_x
     target_position.y = target_position.y + offset_y + rotated_y
     self:propose_tick_update(17)
@@ -381,7 +381,7 @@ function Companion:set_attack_destination(position)
   local self_position = self.entity.position
   local distance = self:distance(position) - 16
 
-  local update = 60
+  local update = 30
 
   if math.abs(distance) > 2 then
     local offset = self:get_offset(position, distance)
@@ -402,7 +402,7 @@ function Companion:set_job_destination(position, delay_update)
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
 
-  local update = 0
+  local update = 30
   --if delay_update then update = update + 80 end
 
   if distance > 0 then
@@ -478,7 +478,7 @@ end
 function Companion:try_to_find_work(search_area)
 
   local entities
-  local deconstruction_only = self:distance(self.player.position) > 10
+  local deconstruction_only = self:distance(self.player.position) > self.follow_range
   if deconstruction_only then
     -- We are far away from the player, so we can only handle deconstruction
     entities = self.entity.surface.find_entities_filtered{area = search_area, to_be_deconstructed = true}
