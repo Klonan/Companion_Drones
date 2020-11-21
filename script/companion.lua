@@ -22,6 +22,26 @@ local get_repair_tools = function()
   return repair_tools
 end
 
+local fuel_items
+local get_fuel_items = function()
+  if fuel_items then
+    return fuel_items
+  end
+  fuel_items = {}
+  for k, item in pairs (game.item_prototypes) do
+    if item.fuel_value > 0 then
+      table.insert(fuel_items, {name = item.name, count = math.ceil(item.stack_size / 10), fuel_top_speed_multiplier = item.fuel_top_speed_multiplier})
+    end
+  end
+
+  table.sort(fuel_items, function(a, b)
+    return a.fuel_top_speed_multiplier > b.fuel_top_speed_multiplier
+  end)
+
+  --error(serpent.block(fuel_items))
+  return fuel_items
+end
+
 local get_companion = function(unit_number)
   return unit_number and script_data.companions[unit_number]
 end
@@ -180,7 +200,22 @@ function Companion:move_to_robot_average()
   return true
 end
 
+function Companion:try_to_refuel()
+  if self.entity.energy > 10000 then return end
+
+  if self:distance(self.player.position) <= self.follow_range then
+    for k, item in pairs (get_fuel_items()) do
+      if self:find_and_take_from_player(item) then
+        return
+      end
+    end
+  end
+
+  return true
+end
+
 function Companion:update_state_flags()
+  self.out_of_energy = self:try_to_refuel()
   self.is_in_combat = (game.tick - self.last_attack_tick) < 60
   self.is_on_low_health = self.entity.get_health_ratio() < 0.5
   self.is_busy_for_construction = self.is_in_combat or self:move_to_robot_average()
@@ -197,7 +232,6 @@ function Companion:update()
   self:check_equipment()
 
   self:update_state_flags()
-  --self:say("U")
 
   if self.is_getting_full or self.is_on_low_health or not (self.is_in_combat or self.is_busy_for_construction or self.moving_to_destination) then
     self:return_to_player()
@@ -205,6 +239,7 @@ function Companion:update()
 
   self:schedule_next_update()
 
+  --self:say("U")
 end
 
 local default_update_time = 60
@@ -251,10 +286,6 @@ function Companion:get_inventory()
   local inventory = self.entity.get_inventory(defines.inventory.spider_trunk)
   inventory.sort_and_merge()
   return inventory
-end
-
-function Companion:get_first_stack()
-  return self:get_inventory()[1]
 end
 
 function Companion:insert_to_player_or_vehicle(stack)
@@ -350,10 +381,22 @@ end
 
 function Companion:take_item(item, target)
   local inventory = self:get_inventory()
-  local count = math.max(math.min(math.ceil(game.item_prototypes[item.name].stack_size), target.get_item_count(item.name)), item.count)
-  local removed = target.remove_item({name = item.name, count = count})
+
+  local to_take_count
+
+  local target_count = target.get_item_count(item.name)
+  local stack_size = game.item_prototypes[item.name].stack_size
+
+  if target_count <= (stack_size * 2) then
+    to_take_count = math.min(target_count, math.ceil(stack_size / 10))
+  else
+    to_take_count = target_count
+  end
+
+  target_count = math.max(item.count, target_count)
+  local removed = target.remove_item({name = item.name, count = to_take_count})
   if removed == 0 then return end
-  inventory.insert({name = item.name, count = removed})
+  self.entity.insert({name = item.name, count = removed})
 
   self.entity.surface.create_entity
   {
@@ -842,7 +885,7 @@ local perform_job_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
+    if not companion.out_of_power and not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
       free_companion = companion
       break
     end
@@ -870,7 +913,7 @@ local perform_attack_search = function(player, player_data)
 
   local free_companion
   for k, companion in pairs (player_data.companions) do
-    if not companion.is_in_combat and companion.active_combat and companion.can_attack then
+    if not companion.out_of_power and not companion.is_in_combat and companion.active_combat and companion.can_attack then
       free_companion = companion
       break
     end

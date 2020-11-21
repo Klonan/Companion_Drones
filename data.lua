@@ -1,8 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.33
-bot.max_speed = 0.33
+bot.speed = 0.5
+bot.max_speed = 0.5
 bot.max_energy = "1000000J"
 bot.energy_per_tick = "0J"
 bot.speed_multiplier_when_out_of_energy = 2
@@ -173,6 +173,7 @@ local drone =
 {
   type = "spider-vehicle",
   name = "companion",
+  localised_name = {"companion"},
   collision_box = {{-1 * scale, -1 * scale}, {1 * scale, 1 * scale}},
   selection_box = {{-1 * scale, -1 * scale}, {1 * scale, 1 * scale}},
   drawing_box = {{-3 * scale, -4 * scale}, {3 * scale, 2 * scale}},
@@ -270,9 +271,27 @@ local drone =
   render_layer = "air-object",
   energy_source =
   {
-    type = "void"
+    type = "burner",
+    fuel_category = "chemical",
+    effectivity = 1,
+    fuel_inventory_size = 3,
+    smoke =
+    {
+      {
+        name = "train-smoke",
+        deviation = {0.3, 0.3},
+        frequency = 100,
+        position = {0, 0},
+        starting_frame = 0,
+        starting_frame_deviation = 60,
+        height = 2,
+        height_deviation = 0.5,
+        starting_vertical_speed = -0.2,
+        starting_vertical_speed_deviation = 0.1
+      }
+    }
   },
-  movement_energy_consumption = "1W",
+  movement_energy_consumption = "500kW",
   automatic_weapon_cycling = true,
   chain_shooting_cooldown_modifier = 0.5,
   spider_engine =
