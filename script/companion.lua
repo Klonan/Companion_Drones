@@ -30,7 +30,7 @@ local get_fuel_items = function()
   fuel_items = {}
   for k, item in pairs (game.item_prototypes) do
     if item.fuel_value > 0 then
-      table.insert(fuel_items, {name = item.name, count = math.ceil(item.stack_size / 10), fuel_top_speed_multiplier = item.fuel_top_speed_multiplier})
+      table.insert(fuel_items, {name = item.name, count = 1, fuel_top_speed_multiplier = item.fuel_top_speed_multiplier})
     end
   end
 
@@ -66,7 +66,8 @@ Companion.new = function(entity, player)
     robots = {},
     active_construction = true,
     active_combat = true,
-    follow_range = 6,
+    auto_fuel = true,
+    follow_range = 8,
     flagged_for_equipment_changed = true,
     last_attack_tick = 0
   }
@@ -202,7 +203,6 @@ end
 
 function Companion:try_to_refuel()
   if self.entity.energy > 10000 then return end
-
   if self:distance(self.player.position) <= self.follow_range then
     for k, item in pairs (get_fuel_items()) do
       if self:find_and_take_from_player(item) then
@@ -712,6 +712,8 @@ function Companion:update_gui_based_on_settings(event)
   local follow_textfield = get_gui_by_tag(gui, "follow_range_textfield")
   follow_textfield.text = tostring(self.follow_range)
 
+  local auto_refuel_checkbox = get_gui_by_tag(gui, "auto_refuel_checkbox")
+  auto_refuel_checkbox.state = self.auto_fuel
 end
 
 local get_opened_companion = function(player_index)
@@ -767,6 +769,12 @@ local companion_gui_functions =
     companion.follow_range = number
     local slider = get_gui_by_tag(textfield.parent, "follow_range_slider")
     slider.slider_value = number
+  end,
+  auto_refuel_checkbox = function(event)
+    local companion = get_opened_companion(event.player_index)
+    if not companion then return end
+    local checkbox = event.element
+    companion.auto_fuel = checkbox.state
   end
 }
 
@@ -812,6 +820,9 @@ local make_player_gui = function(player)
 
   local slider = follow_range_flow.add{type = "slider", minimum_value = 2, maximum_value = 20, value = 6, value_step = 2, discrete_values = true, discrete_slider = true, style = "notched_slider", tags = {companion_function = "follow_range_slider"}}
   local textfield = follow_range_flow.add{type = "textfield", style = "slider_value_textfield", text = 6, numeric = true, allow_decimal = true, allow_negative = false, lose_focus_on_confirm = true, tags = {companion_function = "follow_range_textfield"}}
+
+  local extra_settings_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Additional options"}
+  local auto_refuel_checkbox = extra_settings_frame.add{type = "checkbox", state = true, caption = "Auto-refuel", tags = {companion_function = "auto_refuel_checkbox"}}
 
   local button = frame.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
   button.style.horizontally_stretchable = true
@@ -1035,6 +1046,7 @@ local on_entity_settings_pasted = function(event)
   companion.active_combat = source_companion.active_combat
   companion.active_construction = source_companion.active_construction
   companion.follow_range = source_companion.follow_range
+  companion.auto_fuel = source_companion.auto_fuel
 
 end
 
