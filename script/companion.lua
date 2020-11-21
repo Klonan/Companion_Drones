@@ -257,6 +257,17 @@ function Companion:get_first_stack()
   return self:get_inventory()[1]
 end
 
+function Companion:insert_to_player_or_vehicle(stack)
+
+  local inserted = self.player.insert(stack)
+  if inserted > 0 then return inserted end
+
+  if self.player.vehicle then
+    return self.player.vehicle.insert(stack)
+  end
+
+end
+
 function Companion:try_to_shove_inventory()
 
   local inventory = self:get_inventory()
@@ -264,7 +275,7 @@ function Companion:try_to_shove_inventory()
   for k = 1, #inventory do
     local stack = inventory[k]
     if not (stack and stack.valid_for_read) then break end
-    local inserted = self.player.insert(stack)
+    local inserted = self:insert_to_player_or_vehicle(stack)
     if inserted == 0 then
       self.player.print({"inventory-restriction.player-inventory-full", stack.prototype.localised_name, {"inventory-full-message.main"}})
       break
@@ -288,7 +299,7 @@ function Companion:try_to_shove_inventory()
       force = self.entity.force,
       position = self.entity.position,
       duration = math.max(math.ceil(total_inserted / 5), 5),
-      max_length = 10
+      max_length = self.follow_range + 4
     }
   end
 
@@ -339,7 +350,7 @@ end
 
 function Companion:take_item(item, target)
   local inventory = self:get_inventory()
-  local count = math.max(math.min(math.ceil(game.item_prototypes[item.name].stack_size / 2), target.get_item_count(item.name)), item.count)
+  local count = math.max(math.min(math.ceil(game.item_prototypes[item.name].stack_size), target.get_item_count(item.name)), item.count)
   local removed = target.remove_item({name = item.name, count = count})
   if removed == 0 then return end
   inventory.insert({name = item.name, count = removed})
