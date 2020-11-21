@@ -337,10 +337,10 @@ function Companion:on_spider_command_completed()
   self.moving_to_destination = nil
 end
 
-function Companion:take_item(item)
+function Companion:take_item(item, target)
   local inventory = self:get_inventory()
-  local count = math.max(math.min(math.ceil(game.item_prototypes[item.name].stack_size / 2), self.player.get_item_count(item.name)), item.count)
-  local removed = self.player.remove_item({name = item.name, count = count})
+  local count = math.max(math.min(math.ceil(game.item_prototypes[item.name].stack_size / 2), target.get_item_count(item.name)), item.count)
+  local removed = target.remove_item({name = item.name, count = count})
   if removed == 0 then return end
   inventory.insert({name = item.name, count = removed})
 
@@ -348,8 +348,8 @@ function Companion:take_item(item)
   {
     name = "inserter-beam",
     source = self.entity,
-    target = self.player.character,
-    target_position = self.player.position,
+    target = (target.is_player() and target.character) or nil,
+    target_position = target.position,
     force = self.entity.force,
     position = self.entity.position,
     duration = math.max(math.ceil(removed / 5), 5),
@@ -475,6 +475,25 @@ function Companion:try_to_find_targets(search_area)
 
 end
 
+function Companion:find_and_take_from_player(item)
+  local count = self.player.get_item_count(item.name)
+  if count >= item.count then
+    if self:take_item(item, self.player) then
+      return true
+    end
+  end
+
+  if self.player.vehicle then
+    local count = self.player.vehicle.get_item_count(item.name)
+    if count >= item.count then
+      if self:take_item(item, self.player.vehicle) then
+        return true
+      end
+    end
+  end
+
+end
+
 function Companion:try_to_find_work(search_area)
 
   local entities
@@ -495,28 +514,26 @@ function Companion:try_to_find_work(search_area)
   local force = self.entity.force
 
   for k, entity in pairs (entities) do
+    if max_item_type_count <= 0 then
+      return
+    end
+
     local entity_force = entity.force
     if deconstruction_only or entity.to_be_deconstructed() then
       if entity.type == "cliff" then
         if not deconstruction_only and not attempted_cliff_names[entity.name] then
-          local item = entity.prototype.cliff_explosive_prototype
-          if item and self.player.get_item_count(item) > 0 then
-            if self:take_item({name = item, count = 1}) then
-              if not self.moving_to_destination then
-                self:set_job_destination(entity.position, true)
-              end
-              max_item_type_count = max_item_type_count - 1
-              if max_item_type_count <= 0 then
-                return
-              end
+          local item_name = entity.prototype.cliff_explosive_prototype
+          if self:find_and_take_from_player({name = item_name, count = 1}) then
+            if not self.moving_to_destination then
+              self:set_job_destination(entity.position, true)
             end
+            max_item_type_count = max_item_type_count - 1
           end
           attempted_cliff_names[entity.name] = true
         end
       else
         if entity_force == force or entity_force.name == "neutral" then
           self:set_job_destination(entity.position, true)
-          return
         end
       end
     end
@@ -526,19 +543,13 @@ function Companion:try_to_find_work(search_area)
       if ghost_types[entity.type] then
         if not attempted_ghost_names[entity.ghost_name] then
           local item = entity.ghost_prototype.items_to_place_this[1]
-          local count = self.player.get_item_count(item.name)
-          if count >= item.count then
-            if self:take_item(item) then
-              if not self.moving_to_destination then
-                self:set_job_destination(entity.position, true)
-              end
-              max_item_type_count = max_item_type_count - 1
-              if max_item_type_count <= 0 then
-                return
-              end
+          if self:find_and_take_from_player(item) then
+            if not self.moving_to_destination then
+              self:set_job_destination(entity.position, true)
             end
+            max_item_type_count = max_item_type_count - 1
+            attempted_ghost_names[entity.ghost_name] = true
           end
-          attempted_ghost_names[entity.ghost_name] = true
         end
       end
 
@@ -551,17 +562,11 @@ function Companion:try_to_find_work(search_area)
             end
           else
             local item = upgrade_target.items_to_place_this[1]
-            local count = self.player.get_item_count(item.name)
-            if count >= item.count then
-              if self:take_item(item) then
-                if not self.moving_to_destination then
-                  self:set_job_destination(entity.position, true)
-                end
-                max_item_type_count = max_item_type_count - 1
-                if max_item_type_count <= 0 then
-                  return
-                end
+            if self:find_and_take_from_player(item) then
+              if not self.moving_to_destination then
+                self:set_job_destination(entity.position, true)
               end
+              max_item_type_count = max_item_type_count - 1
             end
           end
           attempted_upgrade_names[upgrade_target.name] = true
@@ -569,22 +574,15 @@ function Companion:try_to_find_work(search_area)
       end
 
       if not repair_failed and (not entity.has_flag("not-repairable") and entity.get_health_ratio() and entity.get_health_ratio() < 1) then
-        local repair_item
         for k, item in pairs (get_repair_tools()) do
-          local count = self.player.get_item_count(item.name)
-          if count >= item.count then
-            repair_item = item
-            break
-          end
-        end
-        if repair_item then
-          if self:take_item(repair_item) then
+          repair_failed = true
+          if self:find_and_take_from_player(item) then
             if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
+            repair_failed = false
+            break
           end
-        else
-          repair_failed = true
         end
       end
 
@@ -592,20 +590,14 @@ function Companion:try_to_find_work(search_area)
         local items = entity.item_requests
         for name, item_count in pairs (items) do
           if not attempted_proxy_items[name] then
-            local count = self.player.get_item_count(name)
-            if count >= item_count then
-              if self:take_item({name = name, count = item_count}) then
-                if not self.moving_to_destination then
-                  self:set_job_destination(entity.position, true)
-                end
-                max_item_type_count = max_item_type_count - 1
-                if max_item_type_count <= 0 then
-                  return
-                end
+            if self:find_and_take_from_player({name = name, count = item_count}) then
+              if not self.moving_to_destination then
+                self:set_job_destination(entity.position, true)
               end
+              max_item_type_count = max_item_type_count - 1
             end
+            attempted_proxy_items[name] = true
           end
-          attempted_proxy_items[name] = true
         end
       end
 
