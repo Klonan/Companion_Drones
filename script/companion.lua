@@ -203,7 +203,8 @@ end
 
 function Companion:try_to_refuel()
   if self.entity.energy > 10000 then return end
-  if self:distance(self.player.position) <= self.follow_range then
+
+  if self.auto_fuel and self:distance(self.player.position) <= self.follow_range then
     for k, item in pairs (get_fuel_items()) do
       if self:find_and_take_from_player(item) then
         return
