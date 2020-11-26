@@ -107,15 +107,34 @@ local equipment =
   categories = {"companion"}
 }
 
+local item_category =
+{
+  type = "item-subgroup",
+  name = "companion",
+  group = "combat",
+  order = "ea-sports-its-in-the-game"
+}
+
 local equipment_item =
 {
   type = "item",
   name = "companion-roboport-equipment",
-  icon = "__Companion_Drones__/drone-icon.png",
-  icon_size = 200,
+  localised_name = {"companion-roboport"},
+  icons =
+  {
+    {
+      icon = "__Companion_Drones__/drone-icon.png",
+      icon_size = 200
+    },
+    {
+      icon = "__base__/graphics/equipment/personal-roboport-equipment.png",
+      icon_size = 64,
+      scale = 0.333,
+    }
+  },
   placed_as_equipment_result = "companion-roboport-equipment",
-  subgroup = "equipment",
-  order = "e[robotics]-a[personal-roboport-equipment]",
+  subgroup = "companion",
+  order = "c",
   default_request_amount = 1,
   stack_size = 20
 }
@@ -253,7 +272,7 @@ local drone =
     filename = "__base__/graphics/entity/spidertron/spidertron-map.png",
     flags = {"icon"},
     size = {128, 128},
-    scale = 0.5
+    scale = 0.25
   },
   --corpse = "spidertron-remnants",
   --dying_explosion = "spidertron-explosion",
@@ -291,7 +310,7 @@ local drone =
       }
     }
   },
-  movement_energy_consumption = "500kW",
+  movement_energy_consumption = "100kW",
   automatic_weapon_cycling = true,
   chain_shooting_cooldown_modifier = 0.5,
   spider_engine =
@@ -401,9 +420,12 @@ local drone_item =
   type = "item-with-entity-data",
   name = "companion",
   icon = "__Companion_Drones__/drone-icon.png",
+  icon_tintable = "__Companion_Drones__/drone-icon-tintable.png",
+  icon_tintable_mask = "__Companion_Drones__/drone-icon-mask.png",
   icon_size = 200,
-  subgroup = "equipment",
-  order = "e[robotics]-a[personal-roboport-equipment]",
+  subgroup = "companion",
+
+  order = "a",
   stack_size = 1,
   place_result = "companion"
 }
@@ -469,11 +491,22 @@ local gun_item =
 {
   type = "item",
   name = "companion-defense-equipment",
-  icon = "__Companion_Drones__/drone-icon.png",
-  icon_size = 200,
+  localised_name = {"companion-laser"},
+  icons =
+  {
+    {
+      icon = "__Companion_Drones__/drone-icon.png",
+      icon_size = 200
+    },
+    {
+      icon = "__base__/graphics/equipment/personal-laser-defense-equipment.png",
+      icon_size = 64,
+      scale = 0.333,
+    },
+  },
   placed_as_equipment_result = "companion-defense-equipment",
-  subgroup = "equipment",
-  order = "e[robotics]-a[personal-roboport-equipment]",
+  subgroup = "companion",
+  order = "d",
   default_request_amount = 1,
   stack_size = 20
 }
@@ -532,6 +565,7 @@ local shield =
 {
   type = "energy-shield-equipment",
   name = "companion-shield-equipment",
+  localised_name = {"companion-shield"},
   sprite =
   {
     filename = "__base__/graphics/equipment/energy-shield-equipment.png",
@@ -561,11 +595,21 @@ local shield_item =
 {
   type = "item",
   name = "companion-shield-equipment",
-  icon = "__Companion_Drones__/drone-icon.png",
-  icon_size = 200,
+  icons =
+  {
+    {
+      icon = "__Companion_Drones__/drone-icon.png",
+      icon_size = 200
+    },
+    {
+      icon = "__base__/graphics/equipment/energy-shield-equipment.png",
+      icon_size = 64,
+      scale = 0.333,
+    }
+  },
   placed_as_equipment_result = "companion-shield-equipment",
-  subgroup = "equipment",
-  order = "e[robotics]-a[personal-roboport-equipment]",
+  subgroup = "companion",
+  order = "e",
   default_request_amount = 1,
   stack_size = 20
 }
@@ -603,7 +647,7 @@ local battery_item =
   icon = "__Companion_Drones__/drone-icon.png",
   icon_size = 200,
   placed_as_equipment_result = "companion-battery-equipment",
-  subgroup = "equipment",
+  subgroup = "companion",
   order = "e[robotics]-a[personal-roboport-equipment]",
   default_request_amount = 1,
   stack_size = 20
@@ -646,17 +690,43 @@ local reactor_item =
 {
   type = "item",
   name = "companion-reactor-equipment",
-  icon = "__base__/graphics/icons/fusion-reactor-equipment.png",
-  icon_size = 64, icon_mipmaps = 4,
+  localised_name = {"companion-reactor"},
+  icons =
+  {
+    {
+      icon = "__Companion_Drones__/drone-icon.png",
+      icon_size = 200
+    },
+    {
+      icon = "__base__/graphics/equipment/fusion-reactor-equipment.png",
+      icon_size = 128,
+      scale = 0.333 * 0.5,
+    }
+  },
   placed_as_equipment_result = "companion-reactor-equipment",
-  subgroup = "equipment",
-  order = "a[energy-source]-b[fusion-reactor]",
+  subgroup = "companion",
+  order = "b",
   default_request_amount = 1,
   stack_size = 20
 }
 
 local recipes =
 {
+  {
+    type = "recipe",
+    name = "companion",
+    enabled = true,
+    energy_required = 15,
+    ingredients =
+    {
+      {"electronic-circuit", 100},
+      {"iron-gear-wheel", 50},
+      {"iron-plate", 50},
+      {"copper-cable", 50},
+      {"raw-fish", 1},
+    },
+    result = "companion"
+  },
   {
     type = "recipe",
     name = "companion-reactor-equipment",
@@ -713,6 +783,7 @@ data:extend
 {
   bot,
   bot_item,
+  item_category,
   equipment,
   equipment_item,
   --build_beam,

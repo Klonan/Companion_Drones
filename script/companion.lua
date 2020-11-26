@@ -82,7 +82,6 @@ Companion.new = function(entity, player)
   companion:schedule_next_update()
   companion:add_passengers()
 
-  entity.color = player.color
   local player_data = script_data.player_data[player.index]
   if not player_data then
     player_data = {companions = {}, last_search_offset = 0}
