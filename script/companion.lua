@@ -201,7 +201,7 @@ function Companion:move_to_robot_average()
 end
 
 function Companion:try_to_refuel()
-  if self.entity.energy > 10000 then return end
+  if self.entity.energy > 0 then return end
 
   if self.auto_fuel and self:distance(self.player.position) <= self.follow_range then
     for k, item in pairs (get_fuel_items()) do
