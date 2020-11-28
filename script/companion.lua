@@ -81,6 +81,7 @@ Companion.new = function(entity, player)
   companion:propose_tick_update(1)
   companion:schedule_next_update()
   companion:add_passengers()
+  companion:try_to_refuel()
 
   local player_data = script_data.player_data[player.index]
   if not player_data then
@@ -168,7 +169,12 @@ function Companion:check_equipment()
       end
     end
 
+
     self.can_construct = max_robots > 0
+  end
+
+  for k, robot in pairs (self.robots) do
+    robot.logistic_network = network
   end
 
   local can_attack = false
@@ -206,7 +212,8 @@ function Companion:move_to_robot_average()
 end
 
 function Companion:try_to_refuel()
-  if self.entity.energy > 0 then return end
+
+  if not self:get_fuel_inventory().is_empty() then return end
 
   if self.auto_fuel and self:distance(self.player.position) <= self.follow_range then
     for k, item in pairs (get_fuel_items()) do
@@ -293,6 +300,12 @@ function Companion:get_inventory()
   return inventory
 end
 
+function Companion:get_fuel_inventory()
+  local inventory = self.entity.get_fuel_inventory()
+  inventory.sort_and_merge()
+  return inventory
+end
+
 function Companion:insert_to_player_or_vehicle(stack)
 
   local inserted = self.player.insert(stack)
@@ -336,7 +349,7 @@ function Companion:try_to_shove_inventory()
       target_position = self.player.position,
       force = self.entity.force,
       position = self.entity.position,
-      duration = math.max(math.ceil(total_inserted / 5), 5),
+      duration = math.min(math.max(math.ceil(total_inserted / 5), 5), 60),
       max_length = self.follow_range + 4
     }
   end
@@ -397,7 +410,7 @@ function Companion:take_item(item, target)
   if target_count <= (stack_size * 2) then
     to_take_count = math.min(target_count, math.ceil(stack_size / 10))
   else
-    to_take_count = target_count
+    to_take_count = math.min(target_count, stack_size)
   end
 
   target_count = math.max(item.count, target_count)
@@ -413,7 +426,7 @@ function Companion:take_item(item, target)
     target_position = target.position,
     force = self.entity.force,
     position = self.entity.position,
-    duration = math.max(math.ceil(removed / 5), 5),
+    duration = math.min(math.max(math.ceil(removed / 5), 5), 60),
     max_length = self.follow_range + 4
   }
 

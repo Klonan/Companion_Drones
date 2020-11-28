@@ -113,7 +113,7 @@ local item_category =
   type = "item-subgroup",
   name = "companion",
   group = "combat",
-  order = "ea-sports-its-in-the-game"
+  order = "dea-hank"
 }
 
 local equipment_item =
