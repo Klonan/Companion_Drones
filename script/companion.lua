@@ -475,11 +475,11 @@ local angle = function(position_1, position_2)
   return math.atan2(d_y, d_x)
 end
 
-function Companion:get_offset(target_position, length)
+function Companion:get_offset(target_position, length, angle_adjustment)
 
     -- Angle in rads
     local angle = angle(self.entity.position, target_position)
-    angle = angle + (math.pi / 2)
+    angle = angle + (math.pi / 2) + (angle_adjustment or 0)
     local x1 = (length * math.sin(angle))
     local y1 = (-length * math.cos(angle))
 
@@ -493,7 +493,7 @@ function Companion:set_attack_destination(position)
   local update = 30
 
   if math.abs(distance) > 2 then
-    local offset = self:get_offset(position, distance)
+    local offset = self:get_offset(position, distance, (distance < 0 and math.pi/4) or 0)
     self_position.x = self_position.x + offset[1]
 
     self_position.y = self_position.y + offset[2]
