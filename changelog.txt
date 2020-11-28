@@ -1,5 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.2
+Date: 2020-11-28
+  Changes:
+    - Fix crash trying to give items to full player.
+    - Fix search offsets were duplicated for attack and work searching.
+---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 2020-11-28
+  Changes:
+    - Fixed some things with Auto fuel, and reduced fuel consumption.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.0
-Date: ????
+Date: 2020-11-27
   Changes:
     - Initial release

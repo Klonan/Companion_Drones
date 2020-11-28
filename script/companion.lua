@@ -84,7 +84,12 @@ Companion.new = function(entity, player)
 
   local player_data = script_data.player_data[player.index]
   if not player_data then
-    player_data = {companions = {}, last_search_offset = 0}
+    player_data =
+    {
+      companions = {},
+      last_job_search_offset = 0,
+      last_attack_search_offset = 0
+    }
     script_data.player_data[player.index] = player_data
   end
   player_data.companions[entity.unit_number] = companion
@@ -218,7 +223,7 @@ function Companion:update_state_flags()
   self.out_of_energy = self:try_to_refuel()
   self.is_in_combat = (game.tick - self.last_attack_tick) < 60
   self.is_on_low_health = self.entity.get_health_ratio() < 0.5
-  self.is_busy_for_construction = self.is_in_combat or self:move_to_robot_average()
+  self.is_busy_for_construction = self.is_in_combat or self:move_to_robot_average() or self.moving_to_destination
   self.is_getting_full = self:get_inventory()[11].valid_for_read
 end
 
@@ -296,6 +301,8 @@ function Companion:insert_to_player_or_vehicle(stack)
   if self.player.vehicle then
     return self.player.vehicle.insert(stack)
   end
+
+  return 0
 
 end
 
@@ -903,10 +910,10 @@ local perform_job_search = function(player, player_data)
   end
   if not free_companion then return end
 
-  player_data.last_search_offset = player_data.last_search_offset + 1
-  local area = search_offsets[player_data.last_search_offset]
+  player_data.last_job_search_offset = player_data.last_job_search_offset + 1
+  local area = search_offsets[player_data.last_job_search_offset]
   if not area then
-    player_data.last_search_offset = 0
+    player_data.last_job_search_offset = 0
     return
   end
 
@@ -915,8 +922,8 @@ local perform_job_search = function(player, player_data)
 
   free_companion:try_to_find_work(search_area)
 
-  --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_search_offset}
-  --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_search_offset}
+  --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_job_search_offset}
+  --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_job_search_offset}
 
 end
 
@@ -931,10 +938,10 @@ local perform_attack_search = function(player, player_data)
   end
   if not free_companion then return end
 
-  player_data.last_search_offset = player_data.last_search_offset + 1
-  local area = search_offsets[player_data.last_search_offset]
+  player_data.last_attack_search_offset = player_data.last_attack_search_offset + 1
+  local area = search_offsets[player_data.last_attack_search_offset]
   if not area then
-    player_data.last_search_offset = 0
+    player_data.last_attack_search_offset = 0
     return
   end
 
@@ -943,8 +950,8 @@ local perform_attack_search = function(player, player_data)
 
   free_companion:try_to_find_targets(search_area)
 
-  --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_search_offset}
-  --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_search_offset}
+  --player.surface.create_entity{name = "flying-text", position = search_area[1], text = player_data.last_attack_search_offset}
+  --player.surface.create_entity{name = "flying-text", position = search_area[2], text = player_data.last_attack_search_offset}
 
 end
 
@@ -1110,6 +1117,16 @@ lib.on_init = function()
     items["companion-defense-equipment"] = 2
     items["companion-shield-equipment"] = 2
     remote.call("freeplay", "set_created_items", items)
+  end
+end
+
+lib.on_configuration_changed = function()
+  for k, player_data in pairs (script_data.player_data) do
+    if player_data.last_search_offset then
+      player_data.last_job_search_offset = player_data.last_search_offset
+      player_data.last_attack_search_offset = player_data.last_search_offset
+      player_data.last_search_offset = nil
+    end
   end
 end
 
