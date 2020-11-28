@@ -190,7 +190,21 @@ function Companion:check_equipment()
 
 end
 
+function Companion:check_broken_robots()
+  --We are gathered here today, because we should have all our robots available to us. That is that the move to robot average has said.
+  if self.entity.logistic_network.available_construction_robots ~= table_size(self.robots) then
+    for k, robot in pairs (self.robots) do
+      robot.destroy()
+      self.robots[k] = nil
+    end
+    self:say("EMERGENCY")
+    self.flagged_for_equipment_changed = true
+    self:check_equipment()
+  end
+end
+
 function Companion:move_to_robot_average()
+  if not next(self.robots) then return end
   local position = {x = 0, y = 0}
   local our_position = self.entity.position
   local count = 0
@@ -203,7 +217,10 @@ function Companion:move_to_robot_average()
       count = count + 1
     end
   end
-  if count == 0 then return end
+  if count == 0 then
+    self:check_broken_robots()
+    return
+  end
   position.x = ((position.x / count))-- + our_position.x) / 2
   position.y = ((position.y / count))-- + our_position.y) / 2
   self.entity.autopilot_destination = position
@@ -239,11 +256,29 @@ function Companion:propose_tick_update(ticks)
   self.next_tick_update = math.min(math.ceil(ticks), (self.next_tick_update or math.huge))
 end
 
+function Companion:search_for_nearby_work()
+  if not self.can_construct then return end
+  local cell = self.entity.logistic_cell
+  if not cell then return end
+  local range = cell.construction_radius + 5
+  local origin = self.entity.position
+  local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
+  --self:say("NICE")
+  self:try_to_find_work(area)
+end
+
 function Companion:update()
 
   self:check_equipment()
 
+  local was_busy = self.is_busy_for_construction
+
   self:update_state_flags()
+
+  if was_busy and not self.is_busy_for_construction then
+    --So we were building, and now we are finished, lets try to find some work nearby
+    self:search_for_nearby_work()
+  end
 
   if self.is_getting_full or self.is_on_low_health or not (self.is_in_combat or self.is_busy_for_construction or self.moving_to_destination) then
     self:return_to_player()
@@ -408,7 +443,7 @@ function Companion:take_item(item, target)
   local stack_size = game.item_prototypes[item.name].stack_size
 
   if target_count <= (stack_size * 2) then
-    to_take_count = math.min(target_count, math.ceil(stack_size / 10))
+    to_take_count = math.min(target_count, math.ceil(stack_size / 2))
   else
     to_take_count = math.min(target_count, stack_size)
   end
@@ -570,13 +605,17 @@ end
 
 function Companion:try_to_find_work(search_area)
 
-  local entities
-  local deconstruction_only = self:distance(self.player.position) > self.follow_range
-  if deconstruction_only then
-    -- We are far away from the player, so we can only handle deconstruction
-    entities = self.entity.surface.find_entities_filtered{area = search_area, to_be_deconstructed = true}
-  else
-    entities = self.entity.surface.find_entities_filtered{area = search_area}
+  local entities = self.entity.surface.find_entities_filtered{area = search_area}
+
+  local current_items = self:get_inventory().get_contents()
+  local can_take_from_player = self:distance(self.player.position) <= self.follow_range
+
+  local has_or_can_take = function(item)
+    if current_items[item.name] or 0 >= item.count then
+      return true
+    end
+    if not can_take_from_player then return end
+    return self:find_and_take_from_player(item)
   end
 
   local attempted_ghost_names = {}
@@ -593,11 +632,11 @@ function Companion:try_to_find_work(search_area)
     end
 
     local entity_force = entity.force
-    if deconstruction_only or entity.to_be_deconstructed() then
+    if entity.to_be_deconstructed() then
       if entity.type == "cliff" then
         if not deconstruction_only and not attempted_cliff_names[entity.name] then
           local item_name = entity.prototype.cliff_explosive_prototype
-          if self:find_and_take_from_player({name = item_name, count = 1}) then
+          if has_or_can_take({name = item_name, count = 1}) then
             if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
@@ -612,12 +651,12 @@ function Companion:try_to_find_work(search_area)
       end
     end
 
-    if (not deconstruction_only) and entity_force == force then
+    if entity_force == force then
 
       if ghost_types[entity.type] then
         if not attempted_ghost_names[entity.ghost_name] then
           local item = entity.ghost_prototype.items_to_place_this[1]
-          if self:find_and_take_from_player(item) then
+          if has_or_can_take(item) then
             if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
@@ -636,7 +675,7 @@ function Companion:try_to_find_work(search_area)
             end
           else
             local item = upgrade_target.items_to_place_this[1]
-            if self:find_and_take_from_player(item) then
+            if has_or_can_take(item) then
               if not self.moving_to_destination then
                 self:set_job_destination(entity.position, true)
               end
@@ -650,7 +689,7 @@ function Companion:try_to_find_work(search_area)
       if not repair_failed and (not entity.has_flag("not-repairable") and entity.get_health_ratio() and entity.get_health_ratio() < 1) then
         for k, item in pairs (get_repair_tools()) do
           repair_failed = true
-          if self:find_and_take_from_player(item) then
+          if has_or_can_take(item) then
             if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
@@ -664,7 +703,7 @@ function Companion:try_to_find_work(search_area)
         local items = entity.item_requests
         for name, item_count in pairs (items) do
           if not attempted_proxy_items[name] then
-            if self:find_and_take_from_player({name = name, count = item_count}) then
+            if has_or_can_take({name = name, count = item_count}) then
               if not self.moving_to_destination then
                 self:set_job_destination(entity.position, true)
               end
@@ -676,6 +715,7 @@ function Companion:try_to_find_work(search_area)
       end
 
     end
+
   end
 end
 
@@ -1130,6 +1170,13 @@ lib.on_init = function()
     items["companion-defense-equipment"] = 2
     items["companion-shield-equipment"] = 2
     remote.call("freeplay", "set_created_items", items)
+  end
+  local force = game.forces.player
+  if force.max_failed_attempts_per_tick_per_construction_queue == 1 then
+    force.max_failed_attempts_per_tick_per_construction_queue = 4
+  end
+  if force.max_successful_attempts_per_tick_per_construction_queue == 3 then
+    force.max_successful_attempts_per_tick_per_construction_queue = 8
   end
 end
 
