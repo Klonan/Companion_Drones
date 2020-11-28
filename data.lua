@@ -51,6 +51,7 @@ local equipment =
 {
   type = "roboport-equipment",
   name = "companion-roboport-equipment",
+  localised_name = {"companion-roboport"},
   take_result = "companion-roboport-equipment",
   sprite =
   {
@@ -310,7 +311,7 @@ local drone =
       }
     }
   },
-  movement_energy_consumption = "100kW",
+  movement_energy_consumption = "20kW",
   automatic_weapon_cycling = true,
   chain_shooting_cooldown_modifier = 0.5,
   spider_engine =
@@ -434,6 +435,7 @@ local gun =
 {
   type = "active-defense-equipment",
   name = "companion-defense-equipment",
+  localised_name = {"companion-laser"},
   sprite =
   {
     filename = "__base__/graphics/equipment/personal-laser-defense-equipment.png",
@@ -595,6 +597,7 @@ local shield_item =
 {
   type = "item",
   name = "companion-shield-equipment",
+  localised_name = {"companion-shield"},
   icons =
   {
     {
@@ -664,6 +667,7 @@ local reactor =
 {
   type = "generator-equipment",
   name = "companion-reactor-equipment",
+  localised_name = {"companion-reactor"},
   sprite =
   {
     filename = "__base__/graphics/equipment/fusion-reactor-equipment.png",
