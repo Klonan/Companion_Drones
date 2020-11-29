@@ -329,6 +329,12 @@ function Companion:say(string)
 end
 
 function Companion:on_destroyed()
+
+  if not script_data.companions[self.unit_number] then
+    --On destroyed has already been called.
+    return
+  end
+
   self:clear_passengers()
 
   for k, robot in pairs (self.robots) do
@@ -349,7 +355,7 @@ end
 function Companion:distance(position)
   local source = self.entity.position
   local x2 = position[1] or position.x
-  local y2 = position[y] or position.y
+  local y2 = position[2] or position.y
   return (((source.x - x2) ^ 2) + ((source.y - y2) ^ 2)) ^ 0.5
 end
 
