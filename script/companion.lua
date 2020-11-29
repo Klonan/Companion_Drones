@@ -640,7 +640,9 @@ end
 
 function Companion:try_to_find_work(search_area)
 
-  local entities = self.entity.surface.find_entities_filtered{area = search_area}
+  local force = self.entity.force
+  local entities = self.entity.surface.find_entities_filtered{area = search_area, force = force}
+  local neutral
 
   local current_items = self:get_inventory().get_contents()
   local can_take_from_player = self:distance(self.player.position) <= self.follow_range
@@ -655,103 +657,116 @@ function Companion:try_to_find_work(search_area)
 
   local attempted_ghost_names = {}
   local attempted_upgrade_names = {}
-  local attempted_cliff_names = {}
   local attempted_proxy_items = {}
-  local repair_failed = false
+  local repair_attempted = false
+  local deconstruction_attempted = false
   local max_item_type_count = 10
-  local force = self.entity.force
 
   for k, entity in pairs (entities) do
+
     if max_item_type_count <= 0 then
       return
     end
 
-    local entity_force = entity.force
-    if entity.is_registered_for_deconstruction(force) then
-      if entity.type == "cliff" then
-        if not deconstruction_only and not attempted_cliff_names[entity.name] then
-          local item_name = entity.prototype.cliff_explosive_prototype
-          if has_or_can_take({name = item_name, count = 1}) then
-            if not self.moving_to_destination then
-              self:set_job_destination(entity.position, true)
-            end
-            max_item_type_count = max_item_type_count - 1
+    local entity_type = entity.type
+
+    if not deconstruction_attempted and entity.is_registered_for_deconstruction(force) then
+      deconstruction_attempted = true
+      if not self.moving_to_destination then
+        self:set_job_destination(entity.position, true)
+      end
+    end
+
+    if ghost_types[entity_type] and entity.is_registered_for_construction()  then
+      if not attempted_ghost_names[entity.ghost_name] then
+        local item = entity.ghost_prototype.items_to_place_this[1]
+        if has_or_can_take(item) then
+          if not self.moving_to_destination then
+            self:set_job_destination(entity.position, true)
           end
-          attempted_cliff_names[entity.name] = true
-        end
-      else
-        if entity_force == force or entity_force.name == "neutral" then
-          self:set_job_destination(entity.position, true)
+          max_item_type_count = max_item_type_count - 1
+          attempted_ghost_names[entity.ghost_name] = true
         end
       end
     end
 
-    if entity_force == force then
-
-      if ghost_types[entity.type] and entity.is_registered_for_construction()  then
-        if not attempted_ghost_names[entity.ghost_name] then
-          local item = entity.ghost_prototype.items_to_place_this[1]
+    if entity.is_registered_for_upgrade() then
+      local upgrade_target = entity.get_upgrade_target()
+      if not attempted_upgrade_names[upgrade_target.name] then
+        if upgrade_target.name == entity.name then
+          if not self.moving_to_destination then
+            self:set_job_destination(entity.position, true)
+          end
+        else
+          local item = upgrade_target.items_to_place_this[1]
           if has_or_can_take(item) then
             if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
             max_item_type_count = max_item_type_count - 1
-            attempted_ghost_names[entity.ghost_name] = true
           end
         end
+        attempted_upgrade_names[upgrade_target.name] = true
       end
+    end
 
-      if entity.is_registered_for_upgrade()  then
-        local upgrade_target = entity.get_upgrade_target()
-        if not attempted_upgrade_names[upgrade_target.name] then
-          if upgrade_target.name == entity.name then
+    if not repair_attempted and entity.is_registered_for_repair() then
+      repair_attempted = true
+      for k, item in pairs (get_repair_tools()) do
+        if has_or_can_take(item) then
+          if not self.moving_to_destination then
+            self:set_job_destination(entity.position, true)
+          end
+          break
+        end
+      end
+    end
+
+    if item_request_types[entity_type] and entity.is_registered_for_construction() then
+      local items = entity.item_requests
+      for name, item_count in pairs (items) do
+        if not attempted_proxy_items[name] then
+          if has_or_can_take({name = name, count = item_count}) then
             if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
-          else
-            local item = upgrade_target.items_to_place_this[1]
-            if has_or_can_take(item) then
-              if not self.moving_to_destination then
-                self:set_job_destination(entity.position, true)
-              end
-              max_item_type_count = max_item_type_count - 1
-            end
+            max_item_type_count = max_item_type_count - 1
           end
-          attempted_upgrade_names[upgrade_target.name] = true
+          attempted_proxy_items[name] = true
         end
       end
-
-      if not repair_failed and entity.is_registered_for_repair() then
-        for k, item in pairs (get_repair_tools()) do
-          repair_failed = true
-          if has_or_can_take(item) then
-            if not self.moving_to_destination then
-              self:set_job_destination(entity.position, true)
-            end
-            repair_failed = false
-            break
-          end
-        end
-      end
-
-      if item_request_types[entity.type] and entity.is_registered_for_construction() then
-        local items = entity.item_requests
-        for name, item_count in pairs (items) do
-          if not attempted_proxy_items[name] then
-            if has_or_can_take({name = name, count = item_count}) then
-              if not self.moving_to_destination then
-                self:set_job_destination(entity.position, true)
-              end
-              max_item_type_count = max_item_type_count - 1
-            end
-            attempted_proxy_items[name] = true
-          end
-        end
-      end
-
     end
 
   end
+
+  if self.moving_to_destination then
+    --We have a job.
+    return
+  end
+
+  local attempted_cliff_names = {}
+  local neutral_entities = self.entity.surface.find_entities_filtered{area = search_area, force = "neutral", to_be_deconstructed = true}
+  for k, entity in pairs (neutral_entities) do
+    if entity.type == "cliff" then
+      if not attempted_cliff_names[entity.name] and entity.is_registered_for_deconstruction(force) then
+        local item_name = entity.prototype.cliff_explosive_prototype
+        if has_or_can_take({name = item_name, count = 1}) then
+          if not self.moving_to_destination then
+            self:set_job_destination(entity.position, true)
+          end
+          max_item_type_count = max_item_type_count - 1
+        end
+        attempted_cliff_names[entity.name] = true
+      end
+    elseif not deconstruction_attempted and entity.is_registered_for_deconstruction(force) then
+      deconstruction_attempted = true
+      if not self.moving_to_destination then
+        self:set_job_destination(entity.position, true)
+      end
+    end
+
+  end
+
 end
 
 function Companion:on_player_placed_equipment(event)
