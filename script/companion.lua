@@ -267,17 +267,32 @@ function Companion:search_for_nearby_work()
   self:try_to_find_work(area)
 end
 
+function Companion:search_for_nearby_targets()
+  if not self.can_attack then return end
+  local range = 21 + 4
+  local origin = self.entity.position
+  local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
+  --self:say("NICE")
+  self:try_to_find_targets(area)
+end
+
 function Companion:update()
 
   self:check_equipment()
 
   local was_busy = self.is_busy_for_construction
+  local was_in_combat = self.is_in_combat
 
   self:update_state_flags()
 
   if was_busy and not self.is_busy_for_construction then
     --So we were building, and now we are finished, lets try to find some work nearby
     self:search_for_nearby_work()
+  end
+
+  if was_in_combat and not self.is_in_combat then
+    --Same as above
+    self:search_for_nearby_targets()
   end
 
   if self.is_getting_full or self.is_on_low_health or not (self.is_in_combat or self.is_busy_for_construction or self.moving_to_destination) then
@@ -1049,9 +1064,14 @@ local on_script_trigger_effect = function(event)
     return
   end
 
+  local target_entity = event.target_entity
+  if not (target_entity and target_entity.valid) then
+    return
+  end
+
   local companion = get_companion(source_entity.unit_number)
   if companion then
-    companion:attack(event.target_entity)
+    companion:attack(target_entity)
   end
 
 

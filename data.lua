@@ -459,7 +459,8 @@ local gun =
   attack_parameters =
   {
     type = "beam",
-    cooldown = 30,
+    warmup = 10,
+    cooldown = 20,
     cooldown_deviation = 0.1,
     range = 21,
     --source_direction_count = 64,
@@ -468,7 +469,7 @@ local gun =
     ammo_type =
     {
       category = "laser",
-      energy_consumption = "0.1MJ",
+      energy_consumption = "0.1KJ",
       action =
       {
         type = "direct",
