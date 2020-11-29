@@ -319,7 +319,6 @@ function Companion:say(string)
 end
 
 function Companion:on_destroyed()
-
   self:clear_passengers()
 
   for k, robot in pairs (self.robots) do
@@ -411,6 +410,7 @@ function Companion:try_to_shove_inventory()
       force = true,
       ignore_minable = true
     }
+    self:on_destroyed()
   end
 end
 
@@ -809,8 +809,8 @@ local companion_gui_functions =
     local companion = get_opened_companion(event.player_index)
     if not companion then return end
     companion:say("SIR YES SIR")
-    companion:return_to_player()
     companion.flagged_for_mine = true
+    companion:return_to_player()
   end,
   combat_mode_switch = function(event)
     local companion = get_opened_companion(event.player_index)
