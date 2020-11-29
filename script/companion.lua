@@ -221,7 +221,7 @@ function Companion:move_to_robot_average()
     local robot_position = robot.position
     local dx = math.abs(robot_position.x - our_position.x)
     local dy = math.abs((robot_position.y + 2) - our_position.y)
-    if dx > 0.05 or dy > 0.05 then
+    if dx > 0.3 or dy > 0.3 then
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
       count = count + 1
