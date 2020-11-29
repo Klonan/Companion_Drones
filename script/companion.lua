@@ -43,7 +43,15 @@ local get_fuel_items = function()
 end
 
 local get_companion = function(unit_number)
-  return unit_number and script_data.companions[unit_number]
+
+  local companion = unit_number and script_data.companions[unit_number]
+  if not companion then return end
+
+  if not companion.entity.valid then
+    companion:on_destroyed()
+  end
+
+  return companion
 end
 
 local distance = function(position_1, position_2)
@@ -58,6 +66,7 @@ local Companion = {}
 Companion.metatable = {__index = Companion}
 
 Companion.new = function(entity, player)
+
   local companion =
   {
     entity = entity,
@@ -93,7 +102,7 @@ Companion.new = function(entity, player)
     }
     script_data.player_data[player.index] = player_data
   end
-  player_data.companions[entity.unit_number] = companion
+  player_data.companions[entity.unit_number] = true
 end
 
 function Companion:get_grid()
@@ -447,6 +456,10 @@ end
 
 function Companion:on_spider_command_completed()
   self.moving_to_destination = nil
+  local distance = self:distance(self.player.position)
+  if distance <= self.follow_range then
+    self:try_to_shove_inventory()
+  end
 end
 
 function Companion:take_item(item, target)
@@ -970,8 +983,9 @@ setup_search_offsets()
 local perform_job_search = function(player, player_data)
 
   local free_companion
-  for k, companion in pairs (player_data.companions) do
-    if not companion.out_of_power and not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion and not companion.out_of_power and not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
       free_companion = companion
       break
     end
@@ -998,8 +1012,9 @@ end
 local perform_attack_search = function(player, player_data)
 
   local free_companion
-  for k, companion in pairs (player_data.companions) do
-    if not companion.out_of_power and not companion.is_in_combat and companion.active_combat and companion.can_attack then
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion and not companion.out_of_power and not companion.is_in_combat and companion.active_combat and companion.can_attack then
       free_companion = companion
       break
     end

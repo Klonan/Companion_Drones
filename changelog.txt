@@ -4,6 +4,7 @@ Date: 2020-11-29
   Changes:
     - Nearby attack searching.
     - Fix crash when searching for a job the same tick as the companion returns to the player.
+    - Some safety changes related to getting valid companions, fixes edge case crashes.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.3
 Date: 2020-11-28
