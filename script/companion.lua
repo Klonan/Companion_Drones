@@ -203,10 +203,15 @@ function Companion:check_broken_robots()
   --We are gathered here today, because we should have all our robots available to us. That is that the move to robot average has said.
   if self.entity.logistic_network.available_construction_robots ~= table_size(self.robots) then
     for k, robot in pairs (self.robots) do
-      robot.destroy()
+      robot.mine
+      {
+        inventory = self:get_inventory(),
+        force = true,
+        ignore_minable = true
+      }
       self.robots[k] = nil
     end
-    self:say("EMERGENCY")
+    --self:say("EMERGENCY")
     self.flagged_for_equipment_changed = true
     self:check_equipment()
   end
@@ -234,7 +239,7 @@ function Companion:move_to_robot_average()
   position.x = ((position.x / count))-- + our_position.x) / 2
   position.y = ((position.y / count))-- + our_position.y) / 2
   self.entity.autopilot_destination = position
-  self:propose_tick_update(math.random(15, 25))
+  self:propose_tick_update(math.random(10, 20))
   return true
 end
 
@@ -258,7 +263,7 @@ function Companion:update_state_flags()
   self.is_in_combat = (game.tick - self.last_attack_tick) < 60
   self.is_on_low_health = self.entity.get_health_ratio() < 0.5
   self.is_busy_for_construction = self.is_in_combat or self:move_to_robot_average() or self.moving_to_destination
-  self.is_getting_full = self:get_inventory()[11].valid_for_read
+  self.is_getting_full = self:get_inventory()[16].valid_for_read
 end
 
 function Companion:propose_tick_update(ticks)
@@ -270,7 +275,7 @@ function Companion:search_for_nearby_work()
   if not self.can_construct then return end
   local cell = self.entity.logistic_cell
   if not cell then return end
-  local range = cell.construction_radius + 5
+  local range = cell.construction_radius + 8
   local origin = self.entity.position
   local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
   --self:say("NICE")
@@ -279,7 +284,7 @@ end
 
 function Companion:search_for_nearby_targets()
   if not self.can_attack then return end
-  local range = 21 + 4
+  local range = 21 + 8
   local origin = self.entity.position
   local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
   --self:say("NICE")
@@ -546,7 +551,7 @@ function Companion:set_job_destination(position, delay_update)
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
 
-  local update = 30
+  local update = 50
   --if delay_update then update = update + 80 end
 
   if distance > 0 then
@@ -555,7 +560,8 @@ function Companion:set_job_destination(position, delay_update)
     self_position.y = self_position.y + offset[2]
     self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    update = update + math.ceil(distance / 0.25)
+    --update about half way there
+    --update = update + math.ceil(distance / 0.5)
     self:propose_tick_update(update)
   end
 
@@ -727,7 +733,7 @@ function Companion:try_to_find_work(search_area)
       for name, item_count in pairs (items) do
         if not attempted_proxy_items[name] then
           if has_or_can_take({name = name, count = item_count}) then
-            if not self.moving_to_destination then
+            if entity.name == "item-request-proxy" and not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
             max_item_type_count = max_item_type_count - 1
