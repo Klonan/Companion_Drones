@@ -219,8 +219,9 @@ function Companion:move_to_robot_average()
   local count = 0
   for k, robot in pairs (self.robots) do
     local robot_position = robot.position
-    if not robot.get_inventory(defines.inventory.robot_cargo).is_empty() or robot.energy < 1000000 then
-      robot.energy = 1000000
+    local dx = math.abs(robot_position.x - our_position.x)
+    local dy = math.abs((robot_position.y + 2) - our_position.y)
+    if dx > 0.05 or dy > 0.05 then
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
       count = count + 1
@@ -660,7 +661,7 @@ function Companion:try_to_find_work(search_area)
     end
 
     local entity_force = entity.force
-    if entity.to_be_deconstructed() then
+    if entity.is_registered_for_deconstruction(force) then
       if entity.type == "cliff" then
         if not deconstruction_only and not attempted_cliff_names[entity.name] then
           local item_name = entity.prototype.cliff_explosive_prototype
@@ -681,7 +682,7 @@ function Companion:try_to_find_work(search_area)
 
     if entity_force == force then
 
-      if ghost_types[entity.type] then
+      if ghost_types[entity.type] and entity.is_registered_for_construction()  then
         if not attempted_ghost_names[entity.ghost_name] then
           local item = entity.ghost_prototype.items_to_place_this[1]
           if has_or_can_take(item) then
@@ -694,7 +695,7 @@ function Companion:try_to_find_work(search_area)
         end
       end
 
-      if entity.to_be_upgraded() then
+      if entity.is_registered_for_upgrade()  then
         local upgrade_target = entity.get_upgrade_target()
         if not attempted_upgrade_names[upgrade_target.name] then
           if upgrade_target.name == entity.name then
@@ -714,7 +715,7 @@ function Companion:try_to_find_work(search_area)
         end
       end
 
-      if not repair_failed and (not entity.has_flag("not-repairable") and entity.get_health_ratio() and entity.get_health_ratio() < 1) then
+      if not repair_failed and entity.is_registered_for_repair() then
         for k, item in pairs (get_repair_tools()) do
           repair_failed = true
           if has_or_can_take(item) then
@@ -727,7 +728,7 @@ function Companion:try_to_find_work(search_area)
         end
       end
 
-      if item_request_types[entity.type] then
+      if item_request_types[entity.type] and entity.is_registered_for_construction() then
         local items = entity.item_requests
         for name, item_count in pairs (items) do
           if not attempted_proxy_items[name] then
