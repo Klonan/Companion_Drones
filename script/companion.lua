@@ -684,14 +684,28 @@ function Companion:try_to_find_work(search_area)
     end
 
     if ghost_types[entity_type] and entity.is_registered_for_construction()  then
-      if not attempted_ghost_names[entity.ghost_name] then
+      local ghost_name = entity.ghost_name
+      if not attempted_ghost_names[ghost_name] then
         local item = entity.ghost_prototype.items_to_place_this[1]
         if has_or_can_take(item) then
           if not self.moving_to_destination then
             self:set_job_destination(entity.position, true)
           end
           max_item_type_count = max_item_type_count - 1
-          attempted_ghost_names[entity.ghost_name] = true
+          attempted_ghost_names[ghost_name] = 1
+        else
+          attempted_ghost_names[ghost_name] = 0
+        end
+      end
+      if item_request_types[entity_type] and attempted_ghost_names[ghost_name] == 1 then
+        local items = entity.item_requests
+        for name, item_count in pairs (items) do
+          if not attempted_proxy_items[name] then
+            attempted_proxy_items[name] = true
+            if has_or_can_take({name = name, count = item_count}) then
+              max_item_type_count = max_item_type_count - 1
+            end
+          end
         end
       end
     end
@@ -728,17 +742,17 @@ function Companion:try_to_find_work(search_area)
       end
     end
 
-    if item_request_types[entity_type] and entity.is_registered_for_construction() then
+    if entity_type == "item-request-proxy" and entity.is_registered_for_construction() then
       local items = entity.item_requests
       for name, item_count in pairs (items) do
         if not attempted_proxy_items[name] then
+          attempted_proxy_items[name] = true
           if has_or_can_take({name = name, count = item_count}) then
-            if entity.name == "item-request-proxy" and not self.moving_to_destination then
+            if not self.moving_to_destination then
               self:set_job_destination(entity.position, true)
             end
             max_item_type_count = max_item_type_count - 1
           end
-          attempted_proxy_items[name] = true
         end
       end
     end
