@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.5
+Date: 2020-11-30
+  Changes:
+    - Add logic detecting if other construction robots are working on something.
+    - Fix construction logic related to item requests of ghosts that cannot be built.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.4
 Date: 2020-11-29
   Changes:
