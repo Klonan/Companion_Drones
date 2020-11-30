@@ -3,7 +3,7 @@ bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
 bot.speed = 0.5
 bot.max_speed = 0.5
-bot.max_energy = "1000000J"
+bot.max_energy = "1000000MJ"
 bot.energy_per_tick = "0J"
 bot.speed_multiplier_when_out_of_energy = 2
 bot.energy_per_move = "1J"
@@ -16,6 +16,7 @@ bot.cargo_centered = {0, -1}
 bot.selectable_in_game = false
 bot.draw_cargo = true
 bot.max_health = 9999999
+bot.flags = {"hidden"}
 
 bot.idle = util.empty_sprite()
 bot.idle_with_cargo = util.empty_sprite()
@@ -44,7 +45,8 @@ local bot_item =
   subgroup = "logistic-network",
   order = "a[robot]-b[construction-robot]",
   --place_result = "companion-construction-robot",
-  stack_size = 50
+  stack_size = 50,
+  flags = {"hidden"}
 }
 
 local equipment =
@@ -782,6 +784,11 @@ local recipes =
   }
 }
 
+local passenger = util.copy(data.raw["character"]["character"])
+passenger.name = "companion-passenger"
+passenger.flags = {"hidden"}
+passenger.order = "ZZZ"
+
 data:extend(recipes)
 
 data:extend
@@ -807,6 +814,7 @@ data:extend
   --battery_item,
   reactor,
   reactor_item,
-  category
+  category,
+  passenger
 
 }
