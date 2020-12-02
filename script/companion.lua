@@ -152,7 +152,7 @@ Companion.new = function(entity, player)
 end
 
 local base_speed = 0.275
-
+local adjust = 2
 function Companion:clear_speed_sticker()
   if not self.speed_sticker then return end
   self.speed_sticker.destroy()
@@ -187,7 +187,7 @@ function Companion:set_speed(speed)
     self:clear_speed_sticker()
   else
     local sticker = self:get_speed_sticker()
-    sticker.time_to_live = (sticker_life / 10) * difference
+    sticker.time_to_live = (sticker_life / 10) * (difference * adjust)
   end
   local was_too_fast = self.too_fast_for_bots
   if speed > 0.40 then
@@ -540,8 +540,6 @@ function Companion:try_to_shove_inventory()
   end
 end
 
-local stretch_bonus = 0
-local stretch_modifier = 2
 function Companion:return_to_player()
 
   if not self.player.valid then return end
@@ -566,7 +564,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.vehicle then
       self.entity.follow_target = self.player.vehicle
     end
-    self:set_speed((math.abs(self.player.vehicle.speed) + stretch_bonus) * stretch_modifier * distance_boost)
+    self:set_speed((math.abs(self.player.vehicle.speed)) * distance_boost)
     return
   end
 
@@ -574,7 +572,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.character then
       self.entity.follow_target = self.player.character
     end
-    self:set_speed((self.player.character_running_speed + stretch_bonus) * stretch_modifier * distance_boost)
+    self:set_speed((self.player.character_running_speed) * distance_boost)
     return
   end
 
