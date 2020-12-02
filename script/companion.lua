@@ -889,6 +889,7 @@ function Companion:update_gui_based_on_settings(event)
   local gui = player.gui.relative.companion_gui
   if not (gui and gui.valid) then
     make_player_gui(player)
+    gui = player.gui.relative.companion_gui
   end
 
   local combat_mode_switch = get_gui_by_tag(gui, "combat_mode_switch")
@@ -1381,12 +1382,22 @@ lib.on_init = function()
 end
 
 lib.on_configuration_changed = function()
-  for k, player_data in pairs (script_data.player_data) do
+  for player_index, player_data in pairs (script_data.player_data) do
+
     if player_data.last_search_offset then
       player_data.last_job_search_offset = player_data.last_search_offset
       player_data.last_attack_search_offset = player_data.last_search_offset
       player_data.last_search_offset = nil
     end
+
+    local player = game.get_player(player_index)
+    if player then
+      local gui = player.gui.relative
+      if gui.companion_gui then
+        gui.companion_gui.destroy()
+      end
+    end
+
   end
 end
 
