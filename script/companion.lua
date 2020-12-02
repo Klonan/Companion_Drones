@@ -120,10 +120,10 @@ function Companion:get_grid()
 end
 
 function Companion:add_passengers()
-  local driver = self.entity.surface.create_entity{name = "character", position = self.entity.position, force = self.entity.force}
+  local driver = self.entity.surface.create_entity{name = "companion-passenger", position = self.entity.position, force = self.entity.force}
   self.entity.set_driver(driver)
   self.driver = driver
-  local passenger = self.entity.surface.create_entity{name = "character", position = self.entity.position, force = self.entity.force}
+  local passenger = self.entity.surface.create_entity{name = "companion-passenger", position = self.entity.position, force = self.entity.force}
   self.entity.set_passenger(passenger)
   self.passenger = passenger
 end
