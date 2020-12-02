@@ -5,7 +5,7 @@ bot.speed = 0.5
 bot.max_speed = 0.5
 bot.max_energy = "1000000MJ"
 bot.energy_per_tick = "0J"
-bot.speed_multiplier_when_out_of_energy = 2
+bot.speed_multiplier_when_out_of_energy = 1
 bot.energy_per_move = "1J"
 bot.min_to_charge = 0
 bot.max_to_charge = 0
@@ -791,6 +791,21 @@ passenger.order = "ZZZ"
 
 data:extend(recipes)
 
+local speed_sticker =
+{
+  type = "sticker",
+  name = "speed-sticker",
+  flags = {"not-on-map"},
+  animation = util.empty_sprite(),
+  duration_in_ticks = 5 * 60,
+  target_movement_modifier_from = 1,
+  target_movement_modifier_to = 1,
+  vehicle_speed_modifier_from = 4,
+  vehicle_speed_modifier_to = 1,
+  vehicle_friction_modifier_from = 1,
+  vehicle_friction_modifier_to = 1,
+}
+
 data:extend
 {
   bot,
@@ -815,6 +830,7 @@ data:extend
   reactor,
   reactor_item,
   category,
-  passenger
+  passenger,
+  speed_sticker
 
 }

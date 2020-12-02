@@ -1,4 +1,5 @@
 local util = require("util")
+local follow_range = 10
 
 local script_data =
 {
@@ -86,7 +87,6 @@ Companion.new = function(entity, player)
     active_construction = true,
     active_combat = true,
     auto_fuel = true,
-    follow_range = 8,
     flagged_for_equipment_changed = true,
     last_attack_tick = 0
   }
@@ -229,6 +229,7 @@ end
 
 function Companion:move_to_robot_average()
   if not next(self.robots) then return end
+
   local position = {x = 0, y = 0}
   local our_position = self.entity.position
   local count = 0
@@ -257,7 +258,7 @@ function Companion:try_to_refuel()
 
   if not self:get_fuel_inventory().is_empty() then return end
 
-  if self.auto_fuel and self:distance(self.player.position) <= self.follow_range then
+  if self.auto_fuel and self:distance(self.player.position) <= follow_range then
     for k, item in pairs (get_fuel_items()) do
       if self:find_and_take_from_player(item) then
         return
@@ -301,11 +302,31 @@ function Companion:search_for_nearby_targets()
   self:try_to_find_targets(area)
 end
 
+function Companion:clear_speed_boost()
+  if not self.speed_boost_tick then return end
+  self.speed_boost_tick = nil
+  self:check_equipment()
+  local stickers = self.entity.stickers
+  if not stickers then return end
+  for k, sticker in pairs (self.entity.stickers) do
+    if sticker.name == "speed-sticker" then
+      sticker.destroy()
+    end
+  end
+end
+
 function Companion:update()
+
+  if self.speed_boost_tick then
+    if game.tick - self.speed_boost_tick >= 15 * 60 then
+      self:clear_speed_boost()
+    end
+  end
 
   if self.flagged_for_equipment_changed then
     self:check_equipment()
   end
+
 
   local was_busy = self.is_busy_for_construction
   local was_in_combat = self.is_in_combat
@@ -432,7 +453,7 @@ function Companion:try_to_shove_inventory()
       force = self.entity.force,
       position = self.entity.position,
       duration = math.min(math.max(math.ceil(total_inserted / 5), 5), 60),
-      max_length = self.follow_range + 4
+      max_length = follow_range + 4
     }
   end
 
@@ -447,41 +468,67 @@ function Companion:try_to_shove_inventory()
   end
 end
 
+function Companion:speed_boost()
+  self.entity.surface.create_entity
+  {
+    name = "speed-sticker",
+    target = self.entity,
+    force = self.entity.force,
+    position = self.entity.position
+  }
+  self.speed_boost_tick = game.tick
+  self:clear_robots()
+end
+
 function Companion:return_to_player()
 
   if not self.player.valid then return end
 
-  local target_position = self.player.position
-  local walking_state = self.player.walking_state
-
-  if walking_state.walking then
-    local orientation = walking_state.direction / 8
-    local rads = (orientation - 0.5) * math.pi * 2
-    local unit_number = self.unit_number
-    local offset_x = math.random(-self.follow_range, self.follow_range)
-    local offset_y = math.random(-self.follow_range, self.follow_range)
-    local rotated_x = -(self.follow_range / 2) * math.sin(rads)
-    local rotated_y = (self.follow_range / 2) * math.cos(rads)
-    target_position.x = target_position.x + offset_x + rotated_x
-    target_position.y = target_position.y + offset_y + rotated_y
-    self:propose_tick_update(17)
-  end
-
-  local distance = self:distance(target_position)
-  if distance > self.follow_range then
-    self.entity.autopilot_destination = target_position
+  local distance = self:distance(self.player.position)
+  --self:say(distance)
+  if distance <= follow_range then
+    self:try_to_shove_inventory()
     return
   end
 
+  if distance > 500 then
+    self:teleport(self.player.position, self.entity.surface)
+    return
+  end
 
-  self:try_to_shove_inventory()
+  if distance > 150 then
+    self:speed_boost()
+  end
+
+  local follow_target = self.entity.follow_target
+
+  if self.player.vehicle then
+    if follow_target ~= self.player.vehicle then
+      self.entity.follow_target = self.player.vehicle
+    end
+    if math.abs(self.player.vehicle.speed) > 0.4 then
+      self:speed_boost()
+    end
+    return
+  end
+
+  if self.player.character then
+    if follow_target ~= self.player.character then
+      self.entity.follow_target = self.player.character
+    end
+    if self.player.walking_state.walking and self.player.character_running_speed > 0.4 then
+      self:speed_boost()
+    end
+    return
+  end
+
 
 end
 
 function Companion:on_spider_command_completed()
   self.moving_to_destination = nil
   local distance = self:distance(self.player.position)
-  if distance <= self.follow_range then
+  if distance <= follow_range then
     self:try_to_shove_inventory()
   end
 end
@@ -514,7 +561,7 @@ function Companion:take_item(item, target)
     force = self.entity.force,
     position = self.entity.position,
     duration = math.min(math.max(math.ceil(removed / 5), 5), 60),
-    max_length = self.follow_range + 4
+    max_length = follow_range + 4
   }
 
   return removed >= item.count
@@ -539,6 +586,7 @@ function Companion:get_offset(target_position, length, angle_adjustment)
 end
 
 function Companion:set_attack_destination(position)
+  self:clear_speed_boost()
   local self_position = self.entity.position
   local distance = self:distance(position) - 16
 
@@ -560,6 +608,7 @@ function Companion:set_attack_destination(position)
 end
 
 function Companion:set_job_destination(position, delay_update)
+  self:clear_speed_boost()
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
 
@@ -581,7 +630,7 @@ function Companion:set_job_destination(position, delay_update)
 end
 
 function Companion:attack(entity)
-  self:say("Attacking "..entity.name.. " "..self.entity.force.name.." "..entity.force.name)
+  --self:say("Attacking "..entity.name.. " "..self.entity.force.name.." "..entity.force.name)
   local position = self.entity.position
   for k, offset in pairs  {0, -0.25, 0.25} do
     local projectile = self.entity.surface.create_entity
@@ -663,7 +712,7 @@ function Companion:try_to_find_work(search_area)
   local neutral
 
   local current_items = self:get_inventory().get_contents()
-  local can_take_from_player = self:distance(self.player.position) <= self.follow_range
+  local can_take_from_player = self:distance(self.player.position) <= follow_range
 
   local has_or_can_take = function(item)
     if current_items[item.name] or 0 >= item.count then
@@ -848,12 +897,6 @@ function Companion:update_gui_based_on_settings(event)
   local construction_mode_switch = get_gui_by_tag(gui, "construction_mode_switch")
   construction_mode_switch.switch_state = (self.active_construction and "right") or "left"
 
-  local follow_slider = get_gui_by_tag(gui, "follow_range_slider")
-  follow_slider.slider_value = self.follow_range
-
-  local follow_textfield = get_gui_by_tag(gui, "follow_range_textfield")
-  follow_textfield.text = tostring(self.follow_range)
-
   local auto_refuel_checkbox = get_gui_by_tag(gui, "auto_refuel_checkbox")
   auto_refuel_checkbox.state = self.auto_fuel
 end
@@ -863,8 +906,8 @@ function Companion:teleport(position, surface)
   self:clear_passengers()
   self.entity.teleport(
     {
-      position.x + math.random(-self.follow_range, self.follow_range),
-      position.y + math.random(-self.follow_range, self.follow_range),
+      position.x + math.random(-follow_range, follow_range),
+      position.y + math.random(-follow_range, follow_range),
     },
     surface
   )
@@ -921,27 +964,6 @@ local companion_gui_functions =
     local switch = event.element
     companion.active_construction = switch.switch_state == "right"
   end,
-  follow_range_slider = function(event)
-    local companion = get_opened_companion(event.player_index)
-    if not companion then return end
-    local slider = event.element
-    local number = math.min(math.max(2, slider.slider_value), 20)
-    companion.follow_range = number
-    local textfield = get_gui_by_tag(slider.parent, "follow_range_textfield")
-    textfield.text = tostring(number)
-  end,
-  follow_range_textfield = function(event)
-    local companion = get_opened_companion(event.player_index)
-    if not companion then return end
-    local textfield = event.element
-    local number = tonumber(textfield.text)
-    if not number then return end
-    if number > 20 then return end
-    if number < 2 then return end
-    companion.follow_range = number
-    local slider = get_gui_by_tag(textfield.parent, "follow_range_slider")
-    slider.slider_value = number
-  end,
   auto_refuel_checkbox = function(event)
     local companion = get_opened_companion(event.player_index)
     if not companion then return end
@@ -986,12 +1008,6 @@ local make_player_gui = function(player)
 
   local construction_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Construction mode"}
   local switch = construction_mode_frame.add{type = "switch", left_label_caption = "Passive", right_label_caption = "Active", allow_none_state = false, switch_state = "left", tags = {companion_function = "construction_mode_switch"}}
-
-  local follow_range_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Follow distance"}
-  local follow_range_flow = follow_range_frame.add{type = "flow", style = "player_input_horizontal_flow", }
-
-  local slider = follow_range_flow.add{type = "slider", minimum_value = 2, maximum_value = 20, value = 6, value_step = 2, discrete_values = true, discrete_slider = true, style = "notched_slider", tags = {companion_function = "follow_range_slider"}}
-  local textfield = follow_range_flow.add{type = "textfield", style = "slider_value_textfield", text = 6, numeric = true, allow_decimal = true, allow_negative = false, lose_focus_on_confirm = true, tags = {companion_function = "follow_range_textfield"}}
 
   local extra_settings_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Additional options"}
   local auto_refuel_checkbox = extra_settings_frame.add{type = "checkbox", state = true, caption = "Auto-refuel", tags = {companion_function = "auto_refuel_checkbox"}}
@@ -1069,7 +1085,7 @@ local perform_job_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and not companion.out_of_power and not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
+    if companion and not companion.out_of_energy and not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
       free_companion = companion
       break
     end
@@ -1098,7 +1114,7 @@ local perform_attack_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and not companion.out_of_power and not companion.is_in_combat and companion.active_combat and companion.can_attack then
+    if companion and not companion.out_of_energy and not companion.is_in_combat and companion.active_combat and companion.can_attack then
       free_companion = companion
       break
     end
@@ -1224,7 +1240,6 @@ local on_entity_settings_pasted = function(event)
 
   companion.active_combat = source_companion.active_combat
   companion.active_construction = source_companion.active_construction
-  companion.follow_range = source_companion.follow_range
   companion.auto_fuel = source_companion.auto_fuel
 
 end
@@ -1265,7 +1280,7 @@ local on_player_left_game = function(event)
   if not player_data then return end
 
   local surface = get_secret_surface()
-  local position = {0,0}
+  local position = {x = 0, y = 0}
 
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
