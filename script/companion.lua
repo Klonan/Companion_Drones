@@ -197,7 +197,9 @@ function Companion:set_speed(speed)
   local was_too_fast = self.too_fast_for_bots
   if speed > 0.40 then
     self.too_fast_for_bots = true
-    self:clear_robots()
+    if not was_too_fast then
+      self:clear_robots()
+    end
   else
     self.too_fast_for_bots = false
     if was_too_fast then
@@ -562,7 +564,9 @@ function Companion:return_to_player()
   end
 
   local distance_boost = 1
-  distance_boost = 1 + (distance / 200)
+  if distance > 25 then
+    distance_boost = 1 + ((distance - 25) / 200)
+  end
 
   local follow_target = self.entity.follow_target
 
