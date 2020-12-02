@@ -151,8 +151,6 @@ Companion.new = function(entity, player)
   player_data.companions[entity.unit_number] = true
 end
 
-local base_speed = 0.275
-local adjust = 2
 function Companion:clear_speed_sticker()
   if not self.speed_sticker then return end
   self.speed_sticker.destroy()
@@ -174,20 +172,27 @@ function Companion:get_speed_sticker()
   return self.speed_sticker
 end
 
+local base_speed = 0.26
+local min_speed = 0.35
 local sticker_life = 100
---0 ticks = 1x
+--1 ticks = 1x
 --sticker life = 10x
 
+--0.26
+
 function Companion:set_speed(speed)
+  if speed < min_speed then
+    speed = min_speed
+  end
   if speed == self.speed then return end
   self.speed = speed
-  self:say(speed)
-  local difference = speed - base_speed
-  if difference <= 0 then
+  --self:say(speed)
+  local ratio = speed/base_speed
+  if ratio <= 1 then
     self:clear_speed_sticker()
   else
     local sticker = self:get_speed_sticker()
-    sticker.time_to_live = (sticker_life / 10) * (difference * adjust)
+    sticker.time_to_live = 1 + ((sticker_life/10) * ratio)
   end
   local was_too_fast = self.too_fast_for_bots
   if speed > 0.40 then
@@ -199,6 +204,7 @@ function Companion:set_speed(speed)
       self:check_equipment()
     end
   end
+  --game.print(self.speed.." - "..self.entity.speed)
 end
 
 function Companion:get_speed()
@@ -556,7 +562,7 @@ function Companion:return_to_player()
   end
 
   local distance_boost = 1
-  distance_boost = 1 + (distance/ 100)
+  distance_boost = 1 + (distance / 200)
 
   local follow_target = self.entity.follow_target
 
@@ -564,7 +570,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.vehicle then
       self.entity.follow_target = self.player.vehicle
     end
-    self:set_speed((math.abs(self.player.vehicle.speed)) * distance_boost)
+    self:set_speed((math.abs(self.player.vehicle.speed * 1.05)) * distance_boost)
     return
   end
 
@@ -572,7 +578,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.character then
       self.entity.follow_target = self.player.character
     end
-    self:set_speed((self.player.character_running_speed) * distance_boost)
+    self:set_speed((self.player.character_running_speed * 1.05) * distance_boost)
     return
   end
 
