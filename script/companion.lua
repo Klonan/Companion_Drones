@@ -1234,6 +1234,7 @@ local on_player_changed_surface = function(event)
   local player = game.get_player(event.player_index)
   local surface = player.surface
   local position = player.position
+
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
     if companion then
@@ -1241,6 +1242,37 @@ local on_player_changed_surface = function(event)
     end
   end
 
+end
+
+local on_player_left_game = function(event)
+  local player_data = script_data.player_data[event.player_index]
+  if not player_data then return end
+
+  local surface = get_secret_surface()
+  local position = {0,0}
+
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      companion:teleport(position, surface)
+    end
+  end
+end
+
+local on_player_joined_game = function(event)
+  local player_data = script_data.player_data[event.player_index]
+  if not player_data then return end
+
+  local player = game.get_player(event.player_index)
+  local surface = player.surface
+  local position = player.position
+
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      companion:teleport(position, surface)
+    end
+  end
 
 end
 
@@ -1257,6 +1289,8 @@ lib.events =
   [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
   [defines.events.on_player_changed_surface] = on_player_changed_surface,
+  [defines.events.on_player_left_game] = on_player_left_game,
+  [defines.events.on_player_joined_game] = on_player_joined_game,
 
   [defines.events.on_gui_checked_state_changed] = on_gui_event,
   [defines.events.on_gui_click] = on_gui_event,
@@ -1266,9 +1300,6 @@ lib.events =
   [defines.events.on_gui_switch_state_changed] = on_gui_event,
   [defines.events.on_gui_text_changed] = on_gui_event,
   [defines.events.on_gui_value_changed] = on_gui_event,
-
-
-
 
   --[defines.events.on_gui_confirmed] = on_gui_event,
   --[defines.events.on_gui_closed] = on_gui_event,
