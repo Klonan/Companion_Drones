@@ -144,8 +144,6 @@ end
 
 function Companion:check_equipment()
 
-  if not self.flagged_for_equipment_changed then return end
-
   self.flagged_for_equipment_changed = nil
 
   local grid = self:get_grid()
@@ -209,7 +207,7 @@ function Companion:check_equipment()
 
 end
 
-function Companion:reset_robots()
+function Companion:clear_robots()
   for k, robot in pairs (self.robots) do
     robot.mine
     {
@@ -219,14 +217,12 @@ function Companion:reset_robots()
     }
     self.robots[k] = nil
   end
-  --self:say("EMERGENCY")
-  self.flagged_for_equipment_changed = true
 end
 
 function Companion:check_broken_robots()
   --We are gathered here today, because we should have all our robots available to us. That is that the move to robot average has said.
   if self.entity.logistic_network.available_construction_robots ~= table_size(self.robots) then
-    self:reset_robots()
+    self:clear_robots()
     self:check_equipment()
   end
 end
@@ -307,7 +303,9 @@ end
 
 function Companion:update()
 
-  self:check_equipment()
+  if self.flagged_for_equipment_changed then
+    self:check_equipment()
+  end
 
   local was_busy = self.is_busy_for_construction
   local was_in_combat = self.is_in_combat
@@ -583,7 +581,7 @@ function Companion:set_job_destination(position, delay_update)
 end
 
 function Companion:attack(entity)
-  --self:say("Attacking "..entity.name)
+  self:say("Attacking "..entity.name.. " "..self.entity.force.name.." "..entity.force.name)
   local position = self.entity.position
   for k, offset in pairs  {0, -0.25, 0.25} do
     local projectile = self.entity.surface.create_entity
@@ -861,7 +859,8 @@ function Companion:update_gui_based_on_settings(event)
 end
 
 function Companion:teleport(position, surface)
-  self:reset_robots()
+  self:clear_robots()
+  self:clear_passengers()
   self.entity.teleport(
     {
       position.x + math.random(-self.follow_range, self.follow_range),
@@ -870,6 +869,23 @@ function Companion:teleport(position, surface)
     surface
   )
   self:check_equipment()
+  self:add_passengers()
+end
+
+function Companion:change_force(force)
+
+  self:clear_passengers()
+
+  self.entity.force = force
+  for k, robot in pairs (self.robots) do
+    if robot.valid then
+      robot.force = force
+    end
+  end
+
+  self:check_equipment()
+  self:add_passengers()
+
 end
 
 local get_opened_companion = function(player_index)
@@ -1276,6 +1292,20 @@ local on_player_joined_game = function(event)
 
 end
 
+local on_player_changed_force = function(event)
+  local player_data = script_data.player_data[event.player_index]
+  if not player_data then return end
+
+  local player = game.get_player(event.player_index)
+  local force = player.force
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      companion:change_force(force)
+    end
+  end
+end
+
 local lib = {}
 
 lib.events =
@@ -1291,6 +1321,7 @@ lib.events =
   [defines.events.on_player_changed_surface] = on_player_changed_surface,
   [defines.events.on_player_left_game] = on_player_left_game,
   [defines.events.on_player_joined_game] = on_player_joined_game,
+  [defines.events.on_player_changed_force] = on_player_changed_force,
 
   [defines.events.on_gui_checked_state_changed] = on_gui_event,
   [defines.events.on_gui_click] = on_gui_event,
