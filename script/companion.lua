@@ -62,6 +62,16 @@ local distance = function(position_1, position_2)
   return (((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1))) ^ 0.5
 end
 
+local name = "secret_companion_surface_please_dont_touch"
+local get_secret_surface = function()
+  local surface = game.surfaces[name]
+  if surface then
+    return surface
+  end
+  surface = game.create_surface(name, {height = 1, width = 1})
+  return surface
+end
+
 local Companion = {}
 Companion.metatable = {__index = Companion}
 
@@ -199,20 +209,24 @@ function Companion:check_equipment()
 
 end
 
+function Companion:reset_robots()
+  for k, robot in pairs (self.robots) do
+    robot.mine
+    {
+      inventory = self:get_inventory(),
+      force = true,
+      ignore_minable = true
+    }
+    self.robots[k] = nil
+  end
+  --self:say("EMERGENCY")
+  self.flagged_for_equipment_changed = true
+end
+
 function Companion:check_broken_robots()
   --We are gathered here today, because we should have all our robots available to us. That is that the move to robot average has said.
   if self.entity.logistic_network.available_construction_robots ~= table_size(self.robots) then
-    for k, robot in pairs (self.robots) do
-      robot.mine
-      {
-        inventory = self:get_inventory(),
-        force = true,
-        ignore_minable = true
-      }
-      self.robots[k] = nil
-    end
-    --self:say("EMERGENCY")
-    self.flagged_for_equipment_changed = true
+    self:reset_robots()
     self:check_equipment()
   end
 end
@@ -1201,6 +1215,31 @@ local on_gui_opened = function(event)
   companion:update_gui_based_on_settings(event)
 end
 
+local on_player_changed_surface = function(event)
+  local player_data = script_data.player_data[event.player_index]
+  if not player_data then return end
+
+  local player = game.get_player(event.player_index)
+  local surface = player.surface
+  local position = player.position
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      companion:reset_robots()
+      companion.entity.teleport(
+        {
+          position.x + math.random(-companion.follow_range, companion.follow_range),
+          position.y + math.random(-companion.follow_range, companion.follow_range),
+        },
+        surface
+      )
+      companion:check_equipment()
+    end
+  end
+
+
+end
+
 local lib = {}
 
 lib.events =
@@ -1213,6 +1252,7 @@ lib.events =
   [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
   [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
+  [defines.events.on_player_changed_surface] = on_player_changed_surface,
 
   [defines.events.on_gui_checked_state_changed] = on_gui_event,
   [defines.events.on_gui_click] = on_gui_event,
@@ -1222,6 +1262,8 @@ lib.events =
   [defines.events.on_gui_switch_state_changed] = on_gui_event,
   [defines.events.on_gui_text_changed] = on_gui_event,
   [defines.events.on_gui_value_changed] = on_gui_event,
+
+
 
 
   --[defines.events.on_gui_confirmed] = on_gui_event,
