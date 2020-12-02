@@ -324,7 +324,7 @@ local drone =
         leg = "companion-leg",
         mount_position = {0, -1},
         ground_position = {0, -1},
-        blocking_legs = {},
+        blocking_legs = {1},
         leg_hit_the_ground_trigger = nil
       }
     },
@@ -373,7 +373,7 @@ local leg =
   target_position_randomisation_distance = 0,
   minimal_step_size = 0,
   working_sound = nil,
-  part_length = 1.5,
+  part_length = 2000,
   initial_movement_speed = 1,
   movement_acceleration = 1,
   max_health = 100,
