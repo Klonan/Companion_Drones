@@ -860,6 +860,18 @@ function Companion:update_gui_based_on_settings(event)
   auto_refuel_checkbox.state = self.auto_fuel
 end
 
+function Companion:teleport(position, surface)
+  self:reset_robots()
+  self.entity.teleport(
+    {
+      position.x + math.random(-self.follow_range, self.follow_range),
+      position.y + math.random(-self.follow_range, self.follow_range),
+    },
+    surface
+  )
+  self:check_equipment()
+end
+
 local get_opened_companion = function(player_index)
   local player = game.get_player(player_index)
   if not player then return end
@@ -1225,15 +1237,7 @@ local on_player_changed_surface = function(event)
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
     if companion then
-      companion:reset_robots()
-      companion.entity.teleport(
-        {
-          position.x + math.random(-companion.follow_range, companion.follow_range),
-          position.y + math.random(-companion.follow_range, companion.follow_range),
-        },
-        surface
-      )
-      companion:check_equipment()
+      companion:teleport(position, surface)
     end
   end
 
