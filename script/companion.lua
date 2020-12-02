@@ -586,6 +586,13 @@ function Companion:return_to_player()
     return
   end
 
+  if self.entity.follow_target then
+    self.entity.follow_target = nil
+  end
+
+  self.entity.autopilot_destination = self.player.position
+  self:set_speed(distance / 200)
+
 
 end
 
