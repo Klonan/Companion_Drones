@@ -9,6 +9,42 @@ local script_data =
   search_schedule = {}
 }
 
+local make_player_gui = function(player)
+  local gui = player.gui.relative
+  if gui.companion_gui then return end
+
+  local frame = gui.add
+  {
+    name = "companion_gui",
+    type = "frame",
+    caption = "Companion control",
+    anchor =
+    {
+      position = defines.relative_gui_position.right,
+      name = "companion",
+      gui = defines.relative_gui_type.spider_vehicle_gui
+    },
+    direction = "vertical"
+  }
+
+  local inner = frame.add{type = "frame", direction = "vertical", style = "inside_shallow_frame_with_padding"}
+  inner.style.padding = 4
+  inner.style.horizontally_stretchable = true
+
+  local combat_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Combat mode"}
+  local switch = combat_mode_frame.add{type = "switch", left_label_caption = "Defensive", right_label_caption = "Aggressive", allow_none_state = false, switch_state = "left", tags = {companion_function = "combat_mode_switch"}}
+
+  local construction_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Construction mode"}
+  local switch = construction_mode_frame.add{type = "switch", left_label_caption = "Passive", right_label_caption = "Active", allow_none_state = false, switch_state = "left", tags = {companion_function = "construction_mode_switch"}}
+
+  local extra_settings_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Additional options"}
+  local auto_refuel_checkbox = extra_settings_frame.add{type = "checkbox", state = true, caption = "Auto-refuel", tags = {companion_function = "auto_refuel_checkbox"}}
+
+  local button = frame.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
+  button.style.horizontally_stretchable = true
+
+end
+
 local repair_tools
 local get_repair_tools = function()
   if repair_tools then
@@ -113,6 +149,60 @@ Companion.new = function(entity, player)
     script_data.player_data[player.index] = player_data
   end
   player_data.companions[entity.unit_number] = true
+end
+
+local base_speed = 0.275
+
+function Companion:clear_speed_sticker()
+  if not self.speed_sticker then return end
+  self.speed_sticker.destroy()
+  self.speed_sticker = nil
+end
+
+function Companion:get_speed_sticker()
+  if self.speed_sticker and self.speed_sticker.valid then
+    return self.speed_sticker
+  end
+  self.speed_sticker = self.entity.surface.create_entity
+  {
+    name = "speed-sticker",
+    target = self.entity,
+    force = self.entity.force,
+    position = self.entity.position
+  }
+  self.speed_sticker.active = false
+  return self.speed_sticker
+end
+
+local sticker_life = 100
+--0 ticks = 1x
+--sticker life = 10x
+
+function Companion:set_speed(speed)
+  if speed == self.speed then return end
+  self.speed = speed
+  self:say(speed)
+  local difference = speed - base_speed
+  if difference <= 0 then
+    self:clear_speed_sticker()
+  else
+    local sticker = self:get_speed_sticker()
+    sticker.time_to_live = (sticker_life / 10) * difference
+  end
+  local was_too_fast = self.too_fast_for_bots
+  if speed > 0.40 then
+    self.too_fast_for_bots = true
+    self:clear_robots()
+  else
+    self.too_fast_for_bots = false
+    if was_too_fast then
+      self:check_equipment()
+    end
+  end
+end
+
+function Companion:get_speed()
+  return self.speed or base_speed
 end
 
 function Companion:get_grid()
@@ -228,6 +318,7 @@ function Companion:check_broken_robots()
 end
 
 function Companion:move_to_robot_average()
+  if self.too_fast_for_bots then return end
   if not next(self.robots) then return end
 
   local position = {x = 0, y = 0}
@@ -302,26 +393,7 @@ function Companion:search_for_nearby_targets()
   self:try_to_find_targets(area)
 end
 
-function Companion:clear_speed_boost()
-  if not self.speed_boost_tick then return end
-  self.speed_boost_tick = nil
-  self:check_equipment()
-  local stickers = self.entity.stickers
-  if not stickers then return end
-  for k, sticker in pairs (self.entity.stickers) do
-    if sticker.name == "speed-sticker" then
-      sticker.destroy()
-    end
-  end
-end
-
 function Companion:update()
-
-  if self.speed_boost_tick then
-    if game.tick - self.speed_boost_tick >= 15 * 60 then
-      self:clear_speed_boost()
-    end
-  end
 
   if self.flagged_for_equipment_changed then
     self:check_equipment()
@@ -468,18 +540,8 @@ function Companion:try_to_shove_inventory()
   end
 end
 
-function Companion:speed_boost()
-  self.entity.surface.create_entity
-  {
-    name = "speed-sticker",
-    target = self.entity,
-    force = self.entity.force,
-    position = self.entity.position
-  }
-  self.speed_boost_tick = game.tick
-  self:clear_robots()
-end
-
+local stretch_bonus = 0
+local stretch_modifier = 2
 function Companion:return_to_player()
 
   if not self.player.valid then return end
@@ -488,7 +550,6 @@ function Companion:return_to_player()
   --self:say(distance)
   if distance <= follow_range then
     self:try_to_shove_inventory()
-    return
   end
 
   if distance > 500 then
@@ -496,9 +557,8 @@ function Companion:return_to_player()
     return
   end
 
-  if distance > 150 then
-    self:speed_boost()
-  end
+  local distance_boost = 1
+  distance_boost = 1 + (distance/ 100)
 
   local follow_target = self.entity.follow_target
 
@@ -506,9 +566,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.vehicle then
       self.entity.follow_target = self.player.vehicle
     end
-    if math.abs(self.player.vehicle.speed) > 0.4 then
-      self:speed_boost()
-    end
+    self:set_speed((math.abs(self.player.vehicle.speed) + stretch_bonus) * stretch_modifier * distance_boost)
     return
   end
 
@@ -516,9 +574,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.character then
       self.entity.follow_target = self.player.character
     end
-    if self.player.walking_state.walking and self.player.character_running_speed > 0.4 then
-      self:speed_boost()
-    end
+    self:set_speed((self.player.character_running_speed + stretch_bonus) * stretch_modifier * distance_boost)
     return
   end
 
@@ -586,7 +642,7 @@ function Companion:get_offset(target_position, length, angle_adjustment)
 end
 
 function Companion:set_attack_destination(position)
-  self:clear_speed_boost()
+  self:set_speed(0)
   local self_position = self.entity.position
   local distance = self:distance(position) - 16
 
@@ -608,7 +664,7 @@ function Companion:set_attack_destination(position)
 end
 
 function Companion:set_job_destination(position, delay_update)
-  self:clear_speed_boost()
+  self:set_speed(0)
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
 
@@ -905,6 +961,7 @@ end
 function Companion:teleport(position, surface)
   self:clear_robots()
   self:clear_passengers()
+  self:clear_speed_sticker()
   self.entity.teleport(
     {
       position.x + math.random(-follow_range, follow_range),
@@ -914,6 +971,7 @@ function Companion:teleport(position, surface)
   )
   self:check_equipment()
   self:add_passengers()
+  self:set_speed(self.speed)
 end
 
 function Companion:change_force(force)
@@ -980,42 +1038,6 @@ local on_gui_event = function(event)
   if not function_name then return end
   local action = companion_gui_functions[function_name]
   if action then action(event) end
-end
-
-local make_player_gui = function(player)
-  local gui = player.gui.relative
-  if gui.companion_gui then return end
-
-  local frame = gui.add
-  {
-    name = "companion_gui",
-    type = "frame",
-    caption = "Companion control",
-    anchor =
-    {
-      position = defines.relative_gui_position.right,
-      name = "companion",
-      gui = defines.relative_gui_type.spider_vehicle_gui
-    },
-    direction = "vertical"
-  }
-
-  local inner = frame.add{type = "frame", direction = "vertical", style = "inside_shallow_frame_with_padding"}
-  inner.style.padding = 4
-  inner.style.horizontally_stretchable = true
-
-  local combat_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Combat mode"}
-  local switch = combat_mode_frame.add{type = "switch", left_label_caption = "Defensive", right_label_caption = "Aggressive", allow_none_state = false, switch_state = "left", tags = {companion_function = "combat_mode_switch"}}
-
-  local construction_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Construction mode"}
-  local switch = construction_mode_frame.add{type = "switch", left_label_caption = "Passive", right_label_caption = "Active", allow_none_state = false, switch_state = "left", tags = {companion_function = "construction_mode_switch"}}
-
-  local extra_settings_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Additional options"}
-  local auto_refuel_checkbox = extra_settings_frame.add{type = "checkbox", state = true, caption = "Auto-refuel", tags = {companion_function = "auto_refuel_checkbox"}}
-
-  local button = frame.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
-  button.style.horizontally_stretchable = true
-
 end
 
 local on_built_entity = function(event)
