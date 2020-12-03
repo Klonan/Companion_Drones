@@ -181,6 +181,12 @@ local sticker_life = 100
 
 --0.26
 
+local get_speed_boost = function(burner)
+  local burning = burner.currently_burning
+  if not burning then return 1 end
+  return burning.fuel_top_speed_multiplier
+end
+
 function Companion:set_speed(speed)
   if speed < min_speed then
     speed = min_speed
@@ -188,7 +194,7 @@ function Companion:set_speed(speed)
   if speed == self.speed then return end
   self.speed = speed
   --self:say(speed)
-  local ratio = speed/base_speed
+  local ratio = speed/(base_speed * get_speed_boost(self.entity.burner))
   if ratio <= 1 then
     self:clear_speed_sticker()
   else
@@ -196,7 +202,8 @@ function Companion:set_speed(speed)
     sticker.time_to_live = 1 + ((sticker_life/10) * ratio)
   end
   local was_too_fast = self.too_fast_for_bots
-  if speed > 0.38 then
+  local real_speed = math.max(speed, self.entity.speed)
+  if real_speed > 0.59 then
     self.too_fast_for_bots = true
     self:clear_robots()
   else
@@ -566,8 +573,8 @@ function Companion:return_to_player()
   end
 
   local distance_boost = 1
-  if distance > 25 then
-    distance_boost = 1 + ((distance - 25) / 200)
+  if distance > 32 then
+    distance_boost = 1 + ((distance - 32) / 320)
   end
 
   local follow_target = self.entity.follow_target
@@ -576,7 +583,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.vehicle then
       self.entity.follow_target = self.player.vehicle
     end
-    self:set_speed((math.abs(self.player.vehicle.speed * 1.05)) * distance_boost)
+    self:set_speed((math.abs(self.player.vehicle.speed * 1)) * distance_boost)
     return
   end
 
@@ -584,7 +591,7 @@ function Companion:return_to_player()
     if follow_target ~= self.player.character then
       self.entity.follow_target = self.player.character
     end
-    self:set_speed((self.player.character_running_speed * 1.05) * distance_boost)
+    self:set_speed((self.player.character_running_speed * 1) * distance_boost)
     return
   end
 

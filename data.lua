@@ -1,8 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.5
-bot.max_speed = 0.5
+bot.speed = 0.6
+bot.max_speed = 0.6
 bot.max_energy = "1000000MJ"
 bot.energy_per_tick = "0J"
 bot.speed_multiplier_when_out_of_energy = 1
