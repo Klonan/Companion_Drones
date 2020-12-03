@@ -1,5 +1,5 @@
 local util = require("util")
-local follow_range = 10
+local follow_range = 16
 
 local script_data =
 {
@@ -185,6 +185,41 @@ local get_speed_boost = function(burner)
   local burning = burner.currently_burning
   if not burning then return 1 end
   return burning.fuel_top_speed_multiplier
+end
+
+local rotate_vector = function(vector, orientation)
+  local x = vector[1] or vector.x
+  local y = vector[2] or vector.y
+  local angle = (orientation + 0.25) * math.pi * 2
+  return
+  {
+    x = (math.cos(angle) * x) - (math.sin(angle) * y),
+    y = (math.sin(angle) * x) + (math.cos(angle) * y)
+  }
+end
+
+local adjust_follow_offsets = function(player)
+  local player_data = script_data.player_data[player.index]
+  if not player_data then return end
+  local count = 0
+  local guys = {}
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      if not companion:is_busy() then
+        count = count + 1
+        guys[count] = companion
+      end
+    end
+  end
+  if count == 0 then return end
+  local reach = player.reach_distance - 2
+  local offset = {math.min(4 + (count * 0.33), reach), 0}
+  --local dong = (game.tick % 400) / 400
+  for k, companion in pairs (guys) do
+    local angle = (k / count)-- + dong
+    companion.entity.follow_offset = rotate_vector(offset, angle)
+  end
 end
 
 function Companion:set_speed(speed)
@@ -409,6 +444,10 @@ function Companion:search_for_nearby_targets()
   self:try_to_find_targets(area)
 end
 
+function Companion:is_busy()
+  return self.is_in_combat or self.is_busy_for_construction or self.moving_to_destination
+end
+
 function Companion:update()
 
   if self.flagged_for_equipment_changed then
@@ -431,8 +470,9 @@ function Companion:update()
     self:search_for_nearby_targets()
   end
 
-  if self.is_getting_full or self.is_on_low_health or not (self.is_in_combat or self.is_busy_for_construction or self.moving_to_destination) then
+  if self.is_getting_full or self.is_on_low_health or not (self:is_busy()) then
     self:return_to_player()
+
   end
 
   self:schedule_next_update()
@@ -685,6 +725,7 @@ function Companion:set_attack_destination(position)
 
   self.last_attack_tick = game.tick
   self.is_in_combat = true
+  --adjust_follow_offsets(self.player)
 end
 
 function Companion:set_job_destination(position, delay_update)
@@ -707,6 +748,7 @@ function Companion:set_job_destination(position, delay_update)
   end
 
   self.is_busy_for_construction = true
+  --adjust_follow_offsets(self.player)
 end
 
 function Companion:attack(entity)
@@ -986,10 +1028,12 @@ function Companion:teleport(position, surface)
   self:clear_robots()
   self:clear_passengers()
   self:clear_speed_sticker()
+
+  local offset = self.entity.follow_offset or {math.random(-follow_range, follow_range), math.random(-follow_range, follow_range)}
   self.entity.teleport(
     {
-      position.x + math.random(-follow_range, follow_range),
-      position.y + math.random(-follow_range, follow_range),
+      position.x + offset[1],
+      position.y + offset[2],
     },
     surface
   )
@@ -1193,6 +1237,7 @@ local check_job_search = function(event)
       if player_data then
         perform_job_search(player, player_data)
         perform_attack_search(player, player_data)
+        adjust_follow_offsets(player)
       end
     end
   end

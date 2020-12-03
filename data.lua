@@ -204,8 +204,8 @@ local drone =
   mined_sound = {filename = "__core__/sound/deconstruct-large.ogg",volume = 0.8},
   open_sound = { filename = "__base__/sound/spidertron/spidertron-door-open.ogg", volume= 0.35 },
   close_sound = { filename = "__base__/sound/spidertron/spidertron-door-close.ogg", volume = 0.4 },
-  sound_minimum_speed = 0.1,
-  sound_scaling_ratio = 0.6,
+  sound_minimum_speed = 0.3,
+  sound_scaling_ratio = 0.1,
   working_sound =
   {
     sound =
@@ -287,7 +287,7 @@ local drone =
   height = 2,
   torso_rotation_speed = 0.05,
   chunk_exploration_radius = 3,
-  selection_priority = 51,
+  selection_priority = 45,
   graphics_set = spidertron_torso_graphics_set(0.6),
   base_render_layer = "smoke",
   render_layer = "air-object",
