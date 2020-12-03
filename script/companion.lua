@@ -335,7 +335,7 @@ function Companion:move_to_robot_average()
     local robot_position = robot.position
     local dx = math.abs(robot_position.x - our_position.x)
     local dy = math.abs((robot_position.y + 2) - our_position.y)
-    if dx > 0.3 or dy > 0.3 then
+    if dx > 0.5 or dy > 0.5 then
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
       count = count + 1
@@ -354,7 +354,9 @@ end
 
 function Companion:try_to_refuel()
 
-  if not self:get_fuel_inventory().is_empty() then return end
+  if not self:get_fuel_inventory().is_empty() or self.entity.energy > 0 then
+    return
+  end
 
   if self.auto_fuel and self:distance(self.player.position) <= follow_range then
     for k, item in pairs (get_fuel_items()) do
@@ -531,7 +533,7 @@ function Companion:try_to_shove_inventory()
       target_position = self.player.position,
       force = self.entity.force,
       position = self.entity.position,
-      duration = math.min(math.max(math.ceil(total_inserted / 5), 5), 60),
+      duration = math.min(math.max(math.ceil(total_inserted / 5), 10), 60),
       max_length = follow_range + 4
     }
   end
@@ -555,6 +557,7 @@ function Companion:return_to_player()
   --self:say(distance)
   if distance <= follow_range then
     self:try_to_shove_inventory()
+    if not (self.entity.valid) then return end
   end
 
   if distance > 500 then
@@ -630,7 +633,7 @@ function Companion:take_item(item, target)
     target_position = target.position,
     force = self.entity.force,
     position = self.entity.position,
-    duration = math.min(math.max(math.ceil(removed / 5), 5), 60),
+    duration = math.min(math.max(math.ceil(removed / 5), 10), 60),
     max_length = follow_range + 4
   }
 
