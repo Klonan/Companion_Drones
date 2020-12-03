@@ -124,7 +124,8 @@ Companion.new = function(entity, player)
     active_combat = true,
     auto_fuel = true,
     flagged_for_equipment_changed = true,
-    last_attack_tick = 0
+    last_attack_tick = 0,
+    speed = 0
   }
   setmetatable(companion, Companion.metatable)
   script_data.companions[entity.unit_number] = companion
@@ -195,11 +196,9 @@ function Companion:set_speed(speed)
     sticker.time_to_live = 1 + ((sticker_life/10) * ratio)
   end
   local was_too_fast = self.too_fast_for_bots
-  if speed > 0.40 then
+  if speed > 0.38 then
     self.too_fast_for_bots = true
-    if not was_too_fast then
-      self:clear_robots()
-    end
+    self:clear_robots()
   else
     self.too_fast_for_bots = false
     if was_too_fast then
@@ -210,7 +209,7 @@ function Companion:set_speed(speed)
 end
 
 function Companion:get_speed()
-  return self.speed or base_speed
+  return self.speed
 end
 
 function Companion:get_grid()
@@ -1435,6 +1434,10 @@ lib.on_configuration_changed = function()
       end
     end
 
+  end
+
+  for k, companion in pairs (script_data.companions) do
+    companion.speed = companion.speed or 0
   end
 end
 
