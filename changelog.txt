@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.6
+Date: 2020-12-03
+  Changes:
+    - Removed the follow range options, using new built-in follow commands.
+    - Fixes for teleporting.
+    - Companions will pop offline when players do, and reappear when they join again.
+    - Companions will dynamically adjust their speed to keep up with players.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.5
 Date: 2020-11-30
   Changes:
