@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.7
+Date: 2020-12-04
+  Changes:
+    - I rewrote the updating logic, so drones that are just following the player will not take much script time.
+    - Made the robots spawning and draggin behind the companions less of an issue.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.6
 Date: 2020-12-03
   Changes:
