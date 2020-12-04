@@ -1,10 +1,14 @@
 local util = require("util")
-local follow_range = 16
+local follow_range = 12
+local companion_update_interval = 15
+local base_speed = 0.26
+local build_speed = 0.30
+local sticker_life = 100
 
 local script_data =
 {
   companions = {},
-  tick_updates = {},
+  active_companions = {},
   player_data = {},
   search_schedule = {}
 }
@@ -109,10 +113,85 @@ local get_secret_surface = function()
   return surface
 end
 
+
+local get_speed_boost = function(burner)
+  local burning = burner.currently_burning
+  if not burning then return 1 end
+  return burning.fuel_top_speed_multiplier
+end
+
+local rotate_vector = function(vector, orientation)
+  local x = vector[1] or vector.x
+  local y = vector[2] or vector.y
+  local angle = (orientation) * math.pi * 2
+  return
+  {
+    x = (math.cos(angle) * x) - (math.sin(angle) * y),
+    y = (math.sin(angle) * x) + (math.cos(angle) * y)
+  }
+end
+
+local get_player_speed = function(player)
+
+  if player.vehicle then
+    return math.abs(player.vehicle.speed)
+  end
+
+  if player.character then
+    return player.character_running_speed
+  end
+
+  return 0.5
+
+end
+
+local adjust_follow_behavior = function(player)
+  local player_data = script_data.player_data[player.index]
+  if not player_data then return end
+  local count = 0
+  local guys = {}
+
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      if not companion.active then
+        count = count + 1
+        guys[count] = companion
+      end
+    end
+  end
+
+  if count == 0 then return end
+
+  local reach = player.reach_distance - 2
+  local offset = {math.min(5 + (count * 0.33), reach), 0}
+  if count == 1 then offset = {2, 0} end
+  local dong = 0.25 + (0.5 / count)
+  local speed = get_player_speed(player)
+  local position = player.position
+  for k, companion in pairs (guys) do
+    local angle = (k / count) + dong
+    companion.entity.follow_offset = rotate_vector(offset, angle)
+    companion:set_speed(speed * companion:get_distance_boost(position))
+  end
+end
+
 local Companion = {}
 Companion.metatable = {__index = Companion}
 
 Companion.new = function(entity, player)
+
+  local player_data = script_data.player_data[player.index]
+  if not player_data then
+    player_data =
+    {
+      companions = {},
+      last_job_search_offset = 0,
+      last_attack_search_offset = 0
+    }
+    script_data.player_data[player.index] = player_data
+  end
+  player_data.companions[entity.unit_number] = true
 
   local companion =
   {
@@ -127,29 +206,51 @@ Companion.new = function(entity, player)
     last_attack_tick = 0,
     speed = 0
   }
+
   setmetatable(companion, Companion.metatable)
   script_data.companions[entity.unit_number] = companion
   script.register_on_entity_destroyed(entity)
+
   entity.operable = true
   entity.minable = false
 
+  companion:set_active()
   companion.flagged_for_equipment_changed = true
-  companion:propose_tick_update(1)
-  companion:schedule_next_update()
   companion:add_passengers()
   companion:try_to_refuel()
 
-  local player_data = script_data.player_data[player.index]
-  if not player_data then
-    player_data =
-    {
-      companions = {},
-      last_job_search_offset = 0,
-      last_attack_search_offset = 0
-    }
-    script_data.player_data[player.index] = player_data
+end
+
+function Companion:set_active()
+  self.flagged_for_equipment_changed = true
+  if self.active then return end
+  local mod = self.unit_number % companion_update_interval
+  local list = script_data.active_companions[mod]
+  if not list then
+    list = {}
+    script_data.active_companions[mod] = list
   end
-  player_data.companions[entity.unit_number] = true
+  list[self.unit_number] = true
+  self.active = true
+  self:set_speed(build_speed * get_speed_boost(self.entity.burner))
+  adjust_follow_behavior(self.player)
+end
+
+function Companion:clear_active()
+  if not self.active then return end
+  local mod = self.unit_number % companion_update_interval
+  local list = script_data.active_companions[mod]
+  if not list then
+    error("Wtf?")
+    return
+  end
+  list[self.unit_number] = nil
+  if not next(list) then
+    script_data.active_companions[mod] = nil
+  end
+  self.active = false
+  self:clear_robots()
+  adjust_follow_behavior(self.player)
 end
 
 function Companion:clear_speed_sticker()
@@ -173,79 +274,31 @@ function Companion:get_speed_sticker()
   return self.speed_sticker
 end
 
-local base_speed = 0.26
-local min_speed = 0.35
-local sticker_life = 100
---1 ticks = 1x
---sticker life = 10x
+function Companion:get_distance_boost(position)
 
---0.26
+  local distance = self:distance(position)
 
-local get_speed_boost = function(burner)
-  local burning = burner.currently_burning
-  if not burning then return 1 end
-  return burning.fuel_top_speed_multiplier
-end
-
-local rotate_vector = function(vector, orientation)
-  local x = vector[1] or vector.x
-  local y = vector[2] or vector.y
-  local angle = (orientation + 0.25) * math.pi * 2
-  return
-  {
-    x = (math.cos(angle) * x) - (math.sin(angle) * y),
-    y = (math.sin(angle) * x) + (math.cos(angle) * y)
-  }
-end
-
-local adjust_follow_offsets = function(player)
-  local player_data = script_data.player_data[player.index]
-  if not player_data then return end
-  local count = 0
-  local guys = {}
-  for unit_number, bool in pairs (player_data.companions) do
-    local companion = get_companion(unit_number)
-    if companion then
-      if not companion:is_busy() then
-        count = count + 1
-        guys[count] = companion
-      end
-    end
+  if distance <= 32 then
+    return 1
   end
-  if count == 0 then return end
-  local reach = player.reach_distance - 2
-  local offset = {math.min(4 + (count * 0.33), reach), 0}
-  --local dong = (game.tick % 400) / 400
-  for k, companion in pairs (guys) do
-    local angle = (k / count)-- + dong
-    companion.entity.follow_offset = rotate_vector(offset, angle)
-  end
+
+  return 1 + ((distance - 32) / 320)
 end
 
 function Companion:set_speed(speed)
-  if speed < min_speed then
-    speed = min_speed
+  if self.entity.stickers then
+    --self:say(#self.entity.stickers)
   end
   if speed == self.speed then return end
   self.speed = speed
   --self:say(speed)
   local ratio = speed/(base_speed * get_speed_boost(self.entity.burner))
+  --self:say(ratio)
   if ratio <= 1 then
     self:clear_speed_sticker()
   else
     local sticker = self:get_speed_sticker()
     sticker.time_to_live = 1 + ((sticker_life/10) * ratio)
-  end
-  local was_too_fast = self.too_fast_for_bots
-  local real_speed = math.max(speed, self.entity.speed)
-  if real_speed > 0.59 then
-    self.too_fast_for_bots = true
-    self:clear_robots()
-  else
-    self.too_fast_for_bots = false
-    if was_too_fast then
-      self:check_equipment()
-    end
   end
   --game.print(self.speed.." - "..self.entity.speed)
 end
@@ -289,6 +342,8 @@ function Companion:check_equipment()
 
   local network = self.entity.logistic_network
   local max_robots = (network and network.robot_limit) or 0
+  self.can_construct = max_robots > 0
+  --game.print(self.can_construct)
 
   local robot_count = table_size(self.robots)
 
@@ -306,6 +361,7 @@ function Companion:check_equipment()
     if robot_count < max_robots then
       local surface = self.entity.surface
       local position = self.entity.position
+      position.y = position.y - 2
       local force = self.entity.force
       for k = 1, max_robots - robot_count do
         local robot = surface.create_entity{name = "companion-construction-robot", position = position, force = force}
@@ -326,23 +382,20 @@ function Companion:check_equipment()
     end
 
 
-    self.can_construct = max_robots > 0
   end
 
   for k, robot in pairs (self.robots) do
     robot.logistic_network = network
   end
 
-  local can_attack = false
+  self.can_attack = false
 
   for k, equipment in pairs (grid.equipment) do
     if equipment.type == "active-defense-equipment" then
-      can_attack = true
+      self.can_attack = true
       break
     end
   end
-
-  self.can_attack = can_attack
 
 end
 
@@ -360,14 +413,15 @@ end
 
 function Companion:check_broken_robots()
   --We are gathered here today, because we should have all our robots available to us. That is that the move to robot average has said.
-  if self.entity.logistic_network.available_construction_robots ~= table_size(self.robots) then
+  local network = self.entity.logistic_network
+  if not network or (network.available_construction_robots ~= table_size(self.robots)) then
     self:clear_robots()
     self:check_equipment()
   end
 end
 
 function Companion:move_to_robot_average()
-  if self.too_fast_for_bots then return end
+  if self.moving_to_destination then return end
   if not next(self.robots) then return end
 
   local position = {x = 0, y = 0}
@@ -390,7 +444,6 @@ function Companion:move_to_robot_average()
   position.x = ((position.x / count))-- + our_position.x) / 2
   position.y = ((position.y / count))-- + our_position.y) / 2
   self.entity.autopilot_destination = position
-  self:propose_tick_update(math.random(10, 20))
   return true
 end
 
@@ -417,11 +470,6 @@ function Companion:update_state_flags()
   self.is_on_low_health = self.entity.get_health_ratio() < 0.5
   self.is_busy_for_construction = self.is_in_combat or self:move_to_robot_average() or self.moving_to_destination
   self.is_getting_full = self:get_inventory()[16].valid_for_read
-end
-
-function Companion:propose_tick_update(ticks)
-  if ticks < 1 then error("WTF?") end
-  self.next_tick_update = math.min(math.ceil(ticks), (self.next_tick_update or math.huge))
 end
 
 function Companion:search_for_nearby_work()
@@ -470,24 +518,11 @@ function Companion:update()
     self:search_for_nearby_targets()
   end
 
-  if self.is_getting_full or self.is_on_low_health or not (self:is_busy()) then
+  if self.is_getting_full or self.is_on_low_health or not self:is_busy() then
     self:return_to_player()
-
   end
 
-  self:schedule_next_update()
-
   --self:say("U")
-end
-
-local default_update_time = 60
-function Companion:schedule_next_update()
-  local ticks = self.next_tick_update or default_update_time
-  local tick = game.tick + ticks
-  script_data.tick_updates[tick] = script_data.tick_updates[tick] or {}
-  script_data.tick_updates[tick][self.unit_number] = true
-  --self:say(ticks)
-  self.next_tick_update = nil
 end
 
 function Companion:say(string)
@@ -596,12 +631,17 @@ function Companion:try_to_shove_inventory()
   end
 end
 
+function Companion:can_go_inactive()
+  if self:is_busy() then return end
+  if self.out_of_energy then return end
+  return true
+end
+
 function Companion:return_to_player()
 
   if not self.player.valid then return end
-
   local distance = self:distance(self.player.position)
-  --self:say(distance)
+
   if distance <= follow_range then
     self:try_to_shove_inventory()
     if not (self.entity.valid) then return end
@@ -609,39 +649,17 @@ function Companion:return_to_player()
 
   if distance > 500 then
     self:teleport(self.player.position, self.entity.surface)
-    return
-  end
-
-  local distance_boost = 1
-  if distance > 32 then
-    distance_boost = 1 + ((distance - 32) / 320)
-  end
-
-  local follow_target = self.entity.follow_target
-
-  if self.player.vehicle then
-    if follow_target ~= self.player.vehicle then
-      self.entity.follow_target = self.player.vehicle
-    end
-    self:set_speed((math.abs(self.player.vehicle.speed * 1)) * distance_boost)
-    return
   end
 
   if self.player.character then
-    if follow_target ~= self.player.character then
-      self.entity.follow_target = self.player.character
+    self.entity.follow_target = self.player.character
+    if self:can_go_inactive() then
+      self:clear_active()
     end
-    self:set_speed((self.player.character_running_speed * 1) * distance_boost)
     return
   end
 
-  if self.entity.follow_target then
-    self.entity.follow_target = nil
-  end
-
   self.entity.autopilot_destination = self.player.position
-  self:set_speed(distance / 200)
-
 
 end
 
@@ -706,49 +724,36 @@ function Companion:get_offset(target_position, length, angle_adjustment)
 end
 
 function Companion:set_attack_destination(position)
-  self:set_speed(0)
   local self_position = self.entity.position
   local distance = self:distance(position) - 16
-
-  local update = 30
 
   if math.abs(distance) > 2 then
     local offset = self:get_offset(position, distance, (distance < 0 and math.pi/4) or 0)
     self_position.x = self_position.x + offset[1]
-
     self_position.y = self_position.y + offset[2]
-    self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    update = update + math.ceil(math.abs(distance) / 0.25)
-    self:propose_tick_update(update)
+    self.entity.autopilot_destination = self_position
   end
 
   self.last_attack_tick = game.tick
   self.is_in_combat = true
-  --adjust_follow_offsets(self.player)
+  self:set_active()
 end
 
-function Companion:set_job_destination(position, delay_update)
-  self:set_speed(0)
+function Companion:set_job_destination(position)
   local self_position = self.entity.position
   local distance = self:distance(position) - 4
 
-  local update = 50
-  --if delay_update then update = update + 80 end
-
-  if distance > 0 then
+  if math.abs(distance) > 2 then
     local offset = self:get_offset(position, distance)
     self_position.x = self_position.x + offset[1]
     self_position.y = self_position.y + offset[2]
-    self.entity.autopilot_destination = self_position
     self.moving_to_destination = true
-    --update about half way there
-    --update = update + math.ceil(distance / 0.5)
-    self:propose_tick_update(update)
+    self.entity.autopilot_destination = self_position
   end
 
   self.is_busy_for_construction = true
-  --adjust_follow_offsets(self.player)
+  self:set_active()
 end
 
 function Companion:attack(entity)
@@ -802,6 +807,7 @@ function Companion:try_to_find_targets(search_area)
     local force = entity.force
     if not (force == our_force or our_force.get_cease_fire(entity.force)) then
       self:set_attack_destination(entity.position)
+      return
     end
   end
 
@@ -862,7 +868,7 @@ function Companion:try_to_find_work(search_area)
     if not deconstruction_attempted and entity.is_registered_for_deconstruction(force) then
       deconstruction_attempted = true
       if not self.moving_to_destination then
-        self:set_job_destination(entity.position, true)
+        self:set_job_destination(entity.position)
       end
     end
 
@@ -872,7 +878,7 @@ function Companion:try_to_find_work(search_area)
         local item = entity.ghost_prototype.items_to_place_this[1]
         if has_or_can_take(item) then
           if not self.moving_to_destination then
-            self:set_job_destination(entity.position, true)
+            self:set_job_destination(entity.position)
           end
           max_item_type_count = max_item_type_count - 1
           attempted_ghost_names[ghost_name] = 1
@@ -898,13 +904,13 @@ function Companion:try_to_find_work(search_area)
       if not attempted_upgrade_names[upgrade_target.name] then
         if upgrade_target.name == entity.name then
           if not self.moving_to_destination then
-            self:set_job_destination(entity.position, true)
+            self:set_job_destination(entity.position)
           end
         else
           local item = upgrade_target.items_to_place_this[1]
           if has_or_can_take(item) then
             if not self.moving_to_destination then
-              self:set_job_destination(entity.position, true)
+              self:set_job_destination(entity.position)
             end
             max_item_type_count = max_item_type_count - 1
           end
@@ -918,7 +924,7 @@ function Companion:try_to_find_work(search_area)
       for k, item in pairs (get_repair_tools()) do
         if has_or_can_take(item) then
           if not self.moving_to_destination then
-            self:set_job_destination(entity.position, true)
+            self:set_job_destination(entity.position)
           end
           break
         end
@@ -932,7 +938,7 @@ function Companion:try_to_find_work(search_area)
           attempted_proxy_items[name] = true
           if has_or_can_take({name = name, count = item_count}) then
             if not self.moving_to_destination then
-              self:set_job_destination(entity.position, true)
+              self:set_job_destination(entity.position)
             end
             max_item_type_count = max_item_type_count - 1
           end
@@ -955,7 +961,7 @@ function Companion:try_to_find_work(search_area)
         local item_name = entity.prototype.cliff_explosive_prototype
         if has_or_can_take({name = item_name, count = 1}) then
           if not self.moving_to_destination then
-            self:set_job_destination(entity.position, true)
+            self:set_job_destination(entity.position)
           end
           max_item_type_count = max_item_type_count - 1
         end
@@ -964,7 +970,7 @@ function Companion:try_to_find_work(search_area)
     elseif not deconstruction_attempted and entity.is_registered_for_deconstruction(force) then
       deconstruction_attempted = true
       if not self.moving_to_destination then
-        self:set_job_destination(entity.position, true)
+        self:set_job_destination(entity.position)
       end
     end
 
@@ -973,13 +979,13 @@ function Companion:try_to_find_work(search_area)
 end
 
 function Companion:on_player_placed_equipment(event)
-  self.flagged_for_equipment_changed = true
-  self:say("Equipment added")
+  self:set_active()
+  --self:say("Equipment added")
 end
 
 function Companion:on_player_removed_equipment(event)
-  self.flagged_for_equipment_changed = true
-  self:say("Equipment removed")
+  self:set_active()
+  --self:say("Equipment removed")
 end
 
 local get_gui_by_tag
@@ -1029,17 +1035,9 @@ function Companion:teleport(position, surface)
   self:clear_passengers()
   self:clear_speed_sticker()
 
-  local offset = self.entity.follow_offset or {math.random(-follow_range, follow_range), math.random(-follow_range, follow_range)}
-  self.entity.teleport(
-    {
-      position.x + offset[1],
-      position.y + offset[2],
-    },
-    surface
-  )
-  self:check_equipment()
+  self.entity.teleport(position, surface)
   self:add_passengers()
-  self:set_speed(self.speed)
+  self:set_active()
 end
 
 function Companion:change_force(force)
@@ -1075,7 +1073,7 @@ local companion_gui_functions =
   return_home = function(event)
     local companion = get_opened_companion(event.player_index)
     if not companion then return end
-    companion:say("SIR YES SIR")
+    --companion:say("SIR YES SIR")
     companion.flagged_for_mine = true
     companion:return_to_player()
   end,
@@ -1131,18 +1129,6 @@ local on_entity_destroyed = function(event)
   companion:on_destroyed()
 end
 
-local check_companion_updates = function(event)
-  local tick_updates = script_data.tick_updates[event.tick]
-  if not tick_updates then return end
-  for unit_number, bool in pairs (tick_updates) do
-    local companion = get_companion(unit_number)
-    if companion then
-      companion:update()
-    end
-  end
-  script_data.tick_updates[event.tick] = nil
-end
-
 local search_offsets = {}
 local search_refresh = nil
 local search_distance = 100
@@ -1176,7 +1162,7 @@ local perform_job_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and not companion.out_of_energy and not companion.is_busy_for_construction and companion.active_construction and companion.can_construct then
+    if companion and (not companion.active) and companion.active_construction and companion.can_construct then
       free_companion = companion
       break
     end
@@ -1205,7 +1191,7 @@ local perform_attack_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and not companion.out_of_energy and not companion.is_in_combat and companion.active_combat and companion.can_attack then
+    if companion and not companion.active and companion.active_combat and companion.can_attack then
       free_companion = companion
       break
     end
@@ -1229,23 +1215,54 @@ local perform_attack_search = function(player, player_data)
 
 end
 
-local job_mod = 3
+local job_mod = 5
 local check_job_search = function(event)
-  for k, player in pairs (game.connected_players) do
-    if (k + event.tick) % job_mod == 0 then
-      local player_data = script_data.player_data[player.index]
-      if player_data then
+
+  if not next(script_data.player_data) then return end
+  local players = game.players
+  for player_index, player_data in pairs(script_data.player_data) do
+    if (player_index + event.tick) % job_mod == 0 then
+      local player = players[player_index]
+      if player.connected then
         perform_job_search(player, player_data)
         perform_attack_search(player, player_data)
-        adjust_follow_offsets(player)
+      end
+    end
+  end
+
+end
+
+local update_active_companions = function(event)
+  local mod = event.tick % companion_update_interval
+  local list = script_data.active_companions[mod]
+  if not list then return end
+  for unit_number, bool in pairs (list) do
+    local companion = get_companion(unit_number)
+    if companion then
+      companion:update()
+    end
+  end
+
+end
+
+local follow_mod = 31
+local check_follow_update = function(event)
+  if not next(script_data.player_data) then return end
+  local players = game.players
+  for player_index, player_data in pairs(script_data.player_data) do
+    if (player_index + event.tick) % follow_mod == 0 then
+      local player = players[player_index]
+      if player.connected then
+        adjust_follow_behavior(player)
       end
     end
   end
 end
 
 local on_tick = function(event)
+  update_active_companions(event)
   check_job_search(event)
-  check_companion_updates(event)
+  check_follow_update(event)
 end
 
 local on_spider_command_completed = function(event)
@@ -1322,7 +1339,7 @@ local on_entity_settings_pasted = function(event)
   local companion = get_companion(entity.unit_number)
   if not companion then return end
 
-  companion.flagged_for_equipment_changed = true
+  companion:set_active()
 
   local source = event.source
   if not (source and source.valid) then return end
@@ -1413,6 +1430,13 @@ local on_player_changed_force = function(event)
   end
 end
 
+local reschedule_companions = function()
+  script_data.active_companions = {}
+  for k, companion in pairs (script_data.companions) do
+    companion:set_active()
+  end
+end
+
 local lib = {}
 
 lib.events =
@@ -1494,6 +1518,12 @@ lib.on_configuration_changed = function()
   for k, companion in pairs (script_data.companions) do
     companion.speed = companion.speed or 0
   end
+
+  if script_data.tick_updates then
+    script_data.tick_updates = nil
+  end
+
+  reschedule_companions()
 end
 
 return lib
