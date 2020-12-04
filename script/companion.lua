@@ -1285,17 +1285,6 @@ local reschedule_companions = function()
   end
 end
 
-local on_player_driving_changed_state = function(event)
-  local player = game.get_player(event.player_index)
-  if not (player and player.valid) then return end
-  if not player.vehicle then return end
-
-  if player.vehicle.name == "companion" then
-    player.driving = false
-  end
-
-end
-
 local lib = {}
 
 lib.events =
@@ -1312,7 +1301,6 @@ lib.events =
   [defines.events.on_player_left_game] = on_player_left_game,
   [defines.events.on_player_joined_game] = on_player_joined_game,
   [defines.events.on_player_changed_force] = on_player_changed_force,
-  [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
 }
 
 lib.on_load = function()
