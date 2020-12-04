@@ -569,15 +569,6 @@ function Companion:try_to_shove_inventory()
     }
   end
 
-  if self.flagged_for_mine then
-    self.entity.mine
-    {
-      inventory = self.player.character and self.player.character.get_main_inventory() or nil,
-      force = true,
-      ignore_minable = true
-    }
-    self:on_destroyed()
-  end
 end
 
 function Companion:can_go_inactive()
