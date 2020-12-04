@@ -13,42 +13,6 @@ local script_data =
   search_schedule = {}
 }
 
-local make_player_gui = function(player)
-  local gui = player.gui.relative
-  if gui.companion_gui then return end
-
-  local frame = gui.add
-  {
-    name = "companion_gui",
-    type = "frame",
-    caption = "Companion control",
-    anchor =
-    {
-      position = defines.relative_gui_position.right,
-      name = "companion",
-      gui = defines.relative_gui_type.spider_vehicle_gui
-    },
-    direction = "vertical"
-  }
-
-  local inner = frame.add{type = "frame", direction = "vertical", style = "inside_shallow_frame_with_padding"}
-  inner.style.padding = 4
-  inner.style.horizontally_stretchable = true
-
-  local combat_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Combat mode"}
-  local switch = combat_mode_frame.add{type = "switch", left_label_caption = "Defensive", right_label_caption = "Aggressive", allow_none_state = false, switch_state = "left", tags = {companion_function = "combat_mode_switch"}}
-
-  local construction_mode_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Construction mode"}
-  local switch = construction_mode_frame.add{type = "switch", left_label_caption = "Passive", right_label_caption = "Active", allow_none_state = false, switch_state = "left", tags = {companion_function = "construction_mode_switch"}}
-
-  local extra_settings_frame = inner.add{type = "frame", style = "bordered_frame", caption = "Additional options"}
-  local auto_refuel_checkbox = extra_settings_frame.add{type = "checkbox", state = true, caption = "Auto-refuel", tags = {companion_function = "auto_refuel_checkbox"}}
-
-  local button = frame.add{type = "button", caption = "Return to me", tags = {companion_function = "return_home"}}
-  button.style.horizontally_stretchable = true
-
-end
-
 local repair_tools
 local get_repair_tools = function()
   if repair_tools then
@@ -211,12 +175,8 @@ Companion.new = function(entity, player)
   script_data.companions[entity.unit_number] = companion
   script.register_on_entity_destroyed(entity)
 
-  entity.operable = true
-  entity.minable = false
-
   companion:set_active()
   companion.flagged_for_equipment_changed = true
-  companion:add_passengers()
   companion:try_to_refuel()
 
 end
@@ -309,15 +269,6 @@ end
 
 function Companion:get_grid()
   return self.entity.grid
-end
-
-function Companion:add_passengers()
-  local driver = self.entity.surface.create_entity{name = "companion-passenger", position = self.entity.position, force = self.entity.force}
-  self.entity.set_driver(driver)
-  self.driver = driver
-  local passenger = self.entity.surface.create_entity{name = "companion-passenger", position = self.entity.position, force = self.entity.force}
-  self.entity.set_passenger(passenger)
-  self.passenger = passenger
 end
 
 function Companion:clear_passengers()
@@ -535,8 +486,6 @@ function Companion:on_destroyed()
     --On destroyed has already been called.
     return
   end
-
-  self:clear_passengers()
 
   for k, robot in pairs (self.robots) do
     robot.destroy()
@@ -988,61 +937,15 @@ function Companion:on_player_removed_equipment(event)
   --self:say("Equipment removed")
 end
 
-local get_gui_by_tag
-get_gui_by_tag = function(gui, tag)
-
-  for k, v in pairs (gui.tags) do
-    if v == tag then
-      return gui
-    end
-  end
-
-  for k, child in pairs (gui.children) do
-    local gui = get_gui_by_tag(child, tag)
-    if gui then
-      return gui
-    end
-  end
-
-end
-
-function Companion:update_gui_based_on_settings(event)
-  local player = game.get_player(event.player_index)
-  if player ~= self.player then
-    player.opened = nil
-    self:say("DON'T TOUCH ME I BELONG TO "..self.player.name)
-    return
-  end
-
-  local gui = player.gui.relative.companion_gui
-  if not (gui and gui.valid) then
-    make_player_gui(player)
-    gui = player.gui.relative.companion_gui
-  end
-
-  local combat_mode_switch = get_gui_by_tag(gui, "combat_mode_switch")
-  combat_mode_switch.switch_state = (self.active_combat and "right") or "left"
-
-  local construction_mode_switch = get_gui_by_tag(gui, "construction_mode_switch")
-  construction_mode_switch.switch_state = (self.active_construction and "right") or "left"
-
-  local auto_refuel_checkbox = get_gui_by_tag(gui, "auto_refuel_checkbox")
-  auto_refuel_checkbox.state = self.auto_fuel
-end
-
 function Companion:teleport(position, surface)
   self:clear_robots()
-  self:clear_passengers()
   self:clear_speed_sticker()
 
   self.entity.teleport(position, surface)
-  self:add_passengers()
   self:set_active()
 end
 
 function Companion:change_force(force)
-
-  self:clear_passengers()
 
   self.entity.force = force
   for k, robot in pairs (self.robots) do
@@ -1052,7 +955,6 @@ function Companion:change_force(force)
   end
 
   self:check_equipment()
-  self:add_passengers()
 
 end
 
@@ -1068,44 +970,6 @@ local get_opened_companion = function(player_index)
   return get_companion(opened.unit_number)
 end
 
-local companion_gui_functions =
-{
-  return_home = function(event)
-    local companion = get_opened_companion(event.player_index)
-    if not companion then return end
-    --companion:say("SIR YES SIR")
-    companion.flagged_for_mine = true
-    companion:return_to_player()
-  end,
-  combat_mode_switch = function(event)
-    local companion = get_opened_companion(event.player_index)
-    if not companion then return end
-    local switch = event.element
-    companion.active_combat = switch.switch_state == "right"
-  end,
-  construction_mode_switch = function(event)
-    local companion = get_opened_companion(event.player_index)
-    if not companion then return end
-    local switch = event.element
-    companion.active_construction = switch.switch_state == "right"
-  end,
-  auto_refuel_checkbox = function(event)
-    local companion = get_opened_companion(event.player_index)
-    if not companion then return end
-    local checkbox = event.element
-    companion.auto_fuel = checkbox.state
-  end
-}
-
-local on_gui_event = function(event)
-  local gui = event.element
-  if not (gui and gui.valid) then return end
-  local function_name = gui.tags.companion_function
-  if not function_name then return end
-  local action = companion_gui_functions[function_name]
-  if action then action(event) end
-end
-
 local on_built_entity = function(event)
   local entity = event.created_entity
   if not (entity and entity.valid) then return end
@@ -1118,8 +982,6 @@ local on_built_entity = function(event)
   if not player then return end
 
   Companion.new(entity, player)
-
-  make_player_gui(player)
 
 end
 
@@ -1353,20 +1215,6 @@ local on_entity_settings_pasted = function(event)
 
 end
 
-local on_gui_opened = function(event)
-
-  local player = game.get_player(event.player_index)
-  if player.opened_gui_type ~= defines.gui_type.entity then return end
-
-  local opened = player.opened
-  if not (opened and opened.valid) then return end
-
-  local companion = get_companion(opened.unit_number)
-  if not companion then return end
-
-  companion:update_gui_based_on_settings(event)
-end
-
 local on_player_changed_surface = function(event)
   local player_data = script_data.player_data[event.player_index]
   if not player_data then return end
@@ -1437,6 +1285,17 @@ local reschedule_companions = function()
   end
 end
 
+local on_player_driving_changed_state = function(event)
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  if not player.vehicle then return end
+
+  if player.vehicle.name == "companion" then
+    player.driving = false
+  end
+
+end
+
 local lib = {}
 
 lib.events =
@@ -1453,20 +1312,7 @@ lib.events =
   [defines.events.on_player_left_game] = on_player_left_game,
   [defines.events.on_player_joined_game] = on_player_joined_game,
   [defines.events.on_player_changed_force] = on_player_changed_force,
-
-  [defines.events.on_gui_checked_state_changed] = on_gui_event,
-  [defines.events.on_gui_click] = on_gui_event,
-  [defines.events.on_gui_elem_changed] = on_gui_event,
-  [defines.events.on_gui_selected_tab_changed] = on_gui_event,
-  [defines.events.on_gui_selection_state_changed] = on_gui_event,
-  [defines.events.on_gui_switch_state_changed] = on_gui_event,
-  [defines.events.on_gui_text_changed] = on_gui_event,
-  [defines.events.on_gui_value_changed] = on_gui_event,
-
-  --[defines.events.on_gui_confirmed] = on_gui_event,
-  --[defines.events.on_gui_closed] = on_gui_event,
-  --[defines.events.on_gui_location_changed] = on_gui_event,
-  [defines.events.on_gui_opened] = on_gui_opened,
+  [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
 }
 
 lib.on_load = function()
@@ -1517,6 +1363,8 @@ lib.on_configuration_changed = function()
 
   for k, companion in pairs (script_data.companions) do
     companion.speed = companion.speed or 0
+    companion:clear_passengers()
+    companion.entity.minable = true
   end
 
   if script_data.tick_updates then
