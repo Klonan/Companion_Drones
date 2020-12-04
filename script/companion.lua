@@ -134,6 +134,13 @@ local adjust_follow_behavior = function(player)
   local speed = get_player_speed(player)
   local position = player.position
   for k, companion in pairs (guys) do
+    local target = companion.entity.follow_target
+    if not target then
+      if player.character then
+        companion.entity.follow_target = player.character
+      end
+      game.print("HEHTE?>")
+    end
     local angle = (k / count) + dong
     companion.entity.follow_offset = rotate_vector(offset, angle)
     companion:set_speed(speed * companion:get_distance_boost(position))
@@ -1357,5 +1364,18 @@ lib.on_configuration_changed = function()
 
   reschedule_companions()
 end
+
+local jetpack_remote =
+{
+  on_character_swapped = function(event)
+    local new_character = event.new_character
+    if not (new_character and new_character.valid) then return end
+    if new_character.player then
+      adjust_follow_behavior(new_character.player)
+    end
+  end
+}
+
+remote.add_interface("this is the unique name that I am making for the interface for the jetpack mod if you know what I mean", jetpack_remote)
 
 return lib
