@@ -139,7 +139,6 @@ local adjust_follow_behavior = function(player)
       if player.character then
         companion.entity.follow_target = player.character
       end
-      game.print("HEHTE?>")
     end
     local angle = (k / count) + dong
     companion.entity.follow_offset = rotate_vector(offset, angle)
@@ -755,7 +754,7 @@ function Companion:try_to_find_targets(search_area)
   local our_force = self.entity.force
   for k, entity in pairs (entities) do
     local force = entity.force
-    if not (force == our_force or our_force.get_cease_fire(entity.force)) then
+    if not (force == our_force or force.name == "neutral" or our_force.get_cease_fire(entity.force)) then
       self:set_attack_destination(entity.position)
       return
     end
