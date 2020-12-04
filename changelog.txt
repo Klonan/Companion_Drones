@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.9
+Date: 2020-12-04
+  Changes:
+    - Fix drones going inactive when they have items to give to the player.
+    - Add check to make sure players don't start riding the companions.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.8
 Date: 2020-12-04
   Changes:

@@ -163,9 +163,6 @@ Companion.new = function(entity, player)
     player = player,
     unit_number = entity.unit_number,
     robots = {},
-    active_construction = true,
-    active_combat = true,
-    auto_fuel = true,
     flagged_for_equipment_changed = true,
     last_attack_tick = 0,
     speed = 0
@@ -404,7 +401,7 @@ function Companion:try_to_refuel()
     return
   end
 
-  if self.auto_fuel and self:distance(self.player.position) <= follow_range then
+  if self:distance(self.player.position) <= follow_range then
     for k, item in pairs (get_fuel_items()) do
       if self:find_and_take_from_player(item) then
         return
@@ -500,6 +497,7 @@ function Companion:on_destroyed()
     script_data.player_data[self.player.index] = nil
   end
 
+  adjust_follow_behavior(self.player)
 end
 
 function Companion:distance(position)
@@ -571,9 +569,14 @@ function Companion:try_to_shove_inventory()
 
 end
 
+function Companion:has_items()
+  return not self:get_inventory().is_empty()
+end
+
 function Companion:can_go_inactive()
   if self:is_busy() then return end
   if self.out_of_energy then return end
+  if self:has_items() then return end
   return true
 end
 
@@ -1015,7 +1018,7 @@ local perform_job_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and (not companion.active) and companion.active_construction and companion.can_construct then
+    if companion and (not companion.active) and companion.can_construct then
       free_companion = companion
       break
     end
@@ -1044,7 +1047,7 @@ local perform_attack_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and not companion.active and companion.active_combat and companion.can_attack then
+    if companion and not companion.active and companion.can_attack then
       free_companion = companion
       break
     end
@@ -1194,16 +1197,6 @@ local on_entity_settings_pasted = function(event)
 
   companion:set_active()
 
-  local source = event.source
-  if not (source and source.valid) then return end
-
-  local source_companion = get_companion(source.unit_number)
-  if not source_companion then return end
-
-  companion.active_combat = source_companion.active_combat
-  companion.active_construction = source_companion.active_construction
-  companion.auto_fuel = source_companion.auto_fuel
-
 end
 
 local on_player_changed_surface = function(event)
@@ -1276,6 +1269,17 @@ local reschedule_companions = function()
   end
 end
 
+local on_player_driving_changed_state = function(event)
+  local player = game.get_player(event.player_index)
+  if not (player and player.valid) then return end
+  if not player.vehicle then return end
+
+  if player.vehicle.name == "companion" then
+    player.driving = false
+  end
+
+end
+
 local lib = {}
 
 lib.events =
@@ -1292,6 +1296,7 @@ lib.events =
   [defines.events.on_player_left_game] = on_player_left_game,
   [defines.events.on_player_joined_game] = on_player_joined_game,
   [defines.events.on_player_changed_force] = on_player_changed_force,
+  [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
 }
 
 lib.on_load = function()
