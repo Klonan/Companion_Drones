@@ -1,7 +1,7 @@
 local util = require("util")
 local follow_range = 12
 local companion_update_interval = 15
-local base_speed = 0.26
+local base_speed = 0.25
 local build_speed = 0.30
 local sticker_life = 100
 
@@ -95,14 +95,14 @@ local rotate_vector = function(vector, orientation)
   }
 end
 
-local get_player_speed = function(player)
-
+local get_player_speed = function(player, boost)
+  local boost = boost or 1.0
   if player.vehicle then
-    return math.abs(player.vehicle.speed)
+    return math.abs(player.vehicle.speed) * boost
   end
 
   if player.character then
-    return player.character_running_speed
+    return player.character_running_speed * boost
   end
 
   return 0.5
@@ -130,19 +130,22 @@ local adjust_follow_behavior = function(player)
   local reach = player.reach_distance - 2
   local offset = {math.min(5 + (count * 0.33), reach), 0}
   if count == 1 then offset = {2, 0} end
-  local dong = 0.25 + (0.5 / count)
+  local dong = 0.75 + (0.5 / count)
+  if player.vehicle then
+    dong = dong + player.vehicle.orientation
+  end
   local speed = get_player_speed(player)
   local position = player.position
   for k, companion in pairs (guys) do
     local target = companion.entity.follow_target
-    if not target then
+    if not (target and target.valid) then
       if player.character then
         companion.entity.follow_target = player.character
       end
     end
     local angle = (k / count) + dong
     companion.entity.follow_offset = rotate_vector(offset, angle)
-    companion:set_speed(speed * companion:get_distance_boost(position))
+    companion:set_speed(speed * companion:get_distance_boost(companion.entity.autopilot_destination))
   end
 end
 
@@ -186,7 +189,6 @@ end
 
 function Companion:set_active()
   self.flagged_for_equipment_changed = true
-  if self.active then return end
   local mod = self.unit_number % companion_update_interval
   local list = script_data.active_companions[mod]
   if not list then
@@ -240,12 +242,15 @@ end
 function Companion:get_distance_boost(position)
 
   local distance = self:distance(position)
+  if true then
+    return 1 + (distance / 50)
+  end
 
-  if distance <= 32 then
+  if distance <= 16 then
     return 1
   end
 
-  return 1 + ((distance - 32) / 320)
+  return 1 + ((distance - 16) / 320)
 end
 
 function Companion:set_speed(speed)
@@ -603,6 +608,7 @@ function Companion:return_to_player()
 
   if self.player.character then
     self.entity.follow_target = self.player.character
+    self:set_speed(get_player_speed(self.player), 1.2)
     if self:can_go_inactive() then
       self:clear_active()
     end
@@ -646,6 +652,41 @@ function Companion:take_item(item, target)
     source = self.entity,
     target = (target.is_player() and target.character) or nil,
     target_position = target.position,
+    force = self.entity.force,
+    position = self.entity.position,
+    duration = math.min(math.max(math.ceil(removed / 5), 10), 60),
+    max_length = follow_range + 4
+  }
+
+  return removed >= item.count
+end
+
+function Companion:take_item_from_train(item, train)
+  local inventory = self:get_inventory()
+
+  local to_take_count
+
+  local target_count = train.get_item_count(item.name)
+  local stack_size = game.item_prototypes[item.name].stack_size
+
+  if target_count <= (stack_size * 2) then
+    to_take_count = math.min(target_count, math.ceil(stack_size / 2))
+  else
+    to_take_count = math.min(target_count, stack_size)
+  end
+
+  target_count = math.max(item.count, target_count)
+  local removed = train.remove_item({name = item.name, count = to_take_count})
+  if removed == 0 then return end
+
+  self.entity.insert({name = item.name, count = removed})
+
+  self.entity.surface.create_entity
+  {
+    name = "inserter-beam",
+    source = self.entity,
+    target = self.player.character,
+    target_position = self.player.position,
     force = self.entity.force,
     position = self.entity.position,
     duration = math.min(math.max(math.ceil(removed / 5), 10), 60),
@@ -772,11 +813,21 @@ function Companion:find_and_take_from_player(item)
     end
   end
 
-  if self.player.vehicle then
-    local count = self.player.vehicle.get_item_count(item.name)
+  local vehicle = self.player.vehicle
+  if vehicle then
+    local count = vehicle.get_item_count(item.name)
     if count >= item.count then
-      if self:take_item(item, self.player.vehicle) then
+      if self:take_item(item, vehicle) then
         return true
+      end
+    end
+    local train = vehicle.train
+    if train then
+      local count = train.get_item_count(item.name)
+      if count >= item.count then
+        if self:take_item_from_train(item, train) then
+          return true
+        end
       end
     end
   end
@@ -1377,5 +1428,7 @@ local jetpack_remote =
 }
 
 remote.add_interface("this is the unique name that I am making for the interface for the jetpack mod if you know what I mean", jetpack_remote)
+
+commands.add_command("reschedule_companions", "If they get stuck or something", reschedule_companions)
 
 return lib
