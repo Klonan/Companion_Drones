@@ -271,13 +271,6 @@ local drone =
       percent = 70
     }
   },
-  minimap_representation =
-  {
-    filename = "__base__/graphics/entity/spidertron/spidertron-map.png",
-    flags = {"icon"},
-    size = {128, 128},
-    scale = 0.25
-  },
   --corpse = "spidertron-remnants",
   --dying_explosion = "spidertron-explosion",
   energy_per_hit_point = 1,
@@ -330,10 +323,24 @@ local drone =
       }
     },
     military_target = "spidertron-military-target"
+  },
+
+  minimap_representation =
+  {
+    filename = "__Companion_Drones__/drone-map.png",
+    flags = {"icon"},
+    size = {128, 128},
+    scale = 0.25
   }
+
 }
 drone.graphics_set.render_layer = "air-entity-info-icon"
 drone.graphics_set.base_render_layer = "air-object"
+drone.graphics_set.autopilot_path_visualisation_line_width = 0
+drone.graphics_set.autopilot_path_visualisation_on_map_line_width = 0
+drone.graphics_set.autopilot_destination_visualisation = util.empty_sprite()
+drone.graphics_set.autopilot_destination_queue_on_map_visualisation = util.empty_sprite()
+drone.graphics_set.autopilot_destination_on_map_visualisation = util.empty_sprite()
 drone.graphics_set.light =
 {
   {

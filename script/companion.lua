@@ -128,13 +128,24 @@ local adjust_follow_behavior = function(player)
   if count == 0 then return end
 
   local reach = player.reach_distance - 2
-  local offset = {math.min(5 + (count * 0.33), reach), 0}
-  if count == 1 then offset = {2, 0} end
+  local length = math.min(5 + (count * 0.33), reach)
+  if count == 1 then length = 2 end
   local dong = 0.75 + (0.5 / count)
-  if player.vehicle then
-    dong = dong + player.vehicle.orientation
-  end
+  local shift = {x = 0, y =0}
   local speed = get_player_speed(player)
+  if player.vehicle then
+    local orientation = player.vehicle.orientation
+    dong = dong + orientation
+    shift = rotate_vector({0, -speed * 15}, orientation)
+  end
+
+  if player.character then
+    local walking_state = player.character.walking_state
+    if walking_state.walking then
+      shift = rotate_vector({0, -speed * 15}, walking_state.direction / 8)
+    end
+  end
+  local offset = {length, 0}
   local position = player.position
   for k, companion in pairs (guys) do
     local target = companion.entity.follow_target
@@ -144,7 +155,10 @@ local adjust_follow_behavior = function(player)
       end
     end
     local angle = (k / count) + dong
-    companion.entity.follow_offset = rotate_vector(offset, angle)
+    local follow_offset = rotate_vector(offset, angle)
+    follow_offset.x = follow_offset.x + shift.x
+    follow_offset.y = follow_offset.y + shift.y
+    companion.entity.follow_offset = follow_offset
     companion:set_speed(speed * companion:get_distance_boost(companion.entity.autopilot_destination))
   end
 end
