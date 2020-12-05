@@ -785,11 +785,6 @@ local recipes =
   }
 }
 
-local passenger = util.copy(data.raw["character"]["character"])
-passenger.name = "companion-passenger"
-passenger.flags = {"hidden"}
-passenger.order = "ZZZ"
-
 data:extend(recipes)
 
 local speed_sticker =
@@ -831,7 +826,6 @@ data:extend
   reactor,
   reactor_item,
   category,
-  passenger,
   speed_sticker
 
 }

@@ -595,6 +595,9 @@ end
 function Companion:return_to_player()
 
   if not self.player.valid then return end
+
+  self:clear_robots()
+
   local distance = self:distance(self.player.position)
 
   if distance <= follow_range then
@@ -608,7 +611,7 @@ function Companion:return_to_player()
 
   if self.player.character then
     self.entity.follow_target = self.player.character
-    self:set_speed(get_player_speed(self.player), 1.2)
+    self:set_speed(math.max(build_speed, get_player_speed(self.player, 1.2)))
     if self:can_go_inactive() then
       self:clear_active()
     end
@@ -795,6 +798,7 @@ function Companion:try_to_find_targets(search_area)
 
   local our_force = self.entity.force
   for k, entity in pairs (entities) do
+    if not entity.valid then break end
     local force = entity.force
     if not (force == our_force or force.name == "neutral" or our_force.get_cease_fire(entity.force)) then
       self:set_attack_destination(entity.position)
@@ -864,14 +868,19 @@ function Companion:try_to_find_work(search_area)
       return
     end
 
+    if not entity.valid then break end
+
     local entity_type = entity.type
 
     if not deconstruction_attempted and entity.is_registered_for_deconstruction(force) then
-      deconstruction_attempted = true
-      if not self.moving_to_destination then
-        self:set_job_destination(entity.position)
+      if entity.type ~= "vehicle" or entity.speed < 0.4 then
+        deconstruction_attempted = true
+        if not self.moving_to_destination then
+          self:set_job_destination(entity.position)
+        end
       end
     end
+
 
     if ghost_types[entity_type] and entity.is_registered_for_construction()  then
       local ghost_name = entity.ghost_name
@@ -957,6 +966,7 @@ function Companion:try_to_find_work(search_area)
   local attempted_cliff_names = {}
   local neutral_entities = self.entity.surface.find_entities_filtered{area = search_area, force = "neutral", to_be_deconstructed = true}
   for k, entity in pairs (neutral_entities) do
+    if not entity.valid then break end
     if entity.type == "cliff" then
       if not attempted_cliff_names[entity.name] and entity.is_registered_for_deconstruction(force) then
         local item_name = entity.prototype.cliff_explosive_prototype
