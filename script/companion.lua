@@ -105,7 +105,7 @@ local get_player_speed = function(player, boost)
     return player.character_running_speed * boost
   end
 
-  return 0.5
+  return 0.3
 
 end
 
@@ -137,27 +137,28 @@ local adjust_follow_behavior = function(player)
     local orientation = player.vehicle.orientation
     dong = dong + orientation
     shift = rotate_vector({0, -speed * 15}, orientation)
-  end
-
-  if player.character then
+  elseif player.character then
     local walking_state = player.character.walking_state
     if walking_state.walking then
       shift = rotate_vector({0, -speed * 15}, walking_state.direction / 8)
     end
   end
+
   local offset = {length, 0}
   local position = player.position
   for k, companion in pairs (guys) do
-    local target = companion.entity.follow_target
-    if not (target and target.valid) then
-      if player.character then
-        companion.entity.follow_target = player.character
-      end
-    end
     local angle = (k / count) + dong
     local follow_offset = rotate_vector(offset, angle)
     follow_offset.x = follow_offset.x + shift.x
     follow_offset.y = follow_offset.y + shift.y
+    local target = companion.entity.follow_target
+    if not (target and target.valid) then
+      if player.character then
+        companion.entity.follow_target = player.character
+      else
+        companion.entity.autopilot_destination = {position.x + follow_offset.x, position.y + follow_offset.y}
+      end
+    end
     companion.entity.follow_offset = follow_offset
     companion:set_speed(speed * companion:get_distance_boost(companion.entity.autopilot_destination))
   end
@@ -623,16 +624,20 @@ function Companion:return_to_player()
     self:teleport(self.player.position, self.entity.surface)
   end
 
+  if self:can_go_inactive() then
+    self:clear_active()
+    return
+  end
+
+  self:set_speed(math.max(build_speed, get_player_speed(self.player, 1.2)))
+
   if self.player.character then
     self.entity.follow_target = self.player.character
-    self:set_speed(math.max(build_speed, get_player_speed(self.player, 1.2)))
-    if self:can_go_inactive() then
-      self:clear_active()
-    end
     return
   end
 
   self.entity.autopilot_destination = self.player.position
+
 
 end
 
