@@ -1367,6 +1367,29 @@ local on_player_driving_changed_state = function(event)
 
 end
 
+local rebukes =
+{
+  "You're not the boss of me",
+  "Get lost",
+  "Not me pal",
+  "Maybe later",
+  "Go bother someone else",
+  "I do my own thing",
+  "Jog on"
+}
+
+local on_player_used_spider_remote = function(event)
+  local vehicle = event.vehicle
+  if not (vehicle and vehicle.valid) then return end
+  local companion = get_companion(vehicle.unit_number)
+  if not companion then return end
+
+  companion:say(rebukes[math.random(#rebukes)])
+  companion.entity.follow_target = nil
+  companion.entity.autopilot_destination = nil
+
+end
+
 local lib = {}
 
 lib.events =
@@ -1384,6 +1407,7 @@ lib.events =
   [defines.events.on_player_joined_game] = on_player_joined_game,
   [defines.events.on_player_changed_force] = on_player_changed_force,
   [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
+  [defines.events.on_player_used_spider_remote] = on_player_used_spider_remote,
 }
 
 lib.on_load = function()
