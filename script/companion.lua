@@ -430,7 +430,7 @@ function Companion:search_for_nearby_work()
   if not self.can_construct then return end
   local cell = self.entity.logistic_cell
   if not cell then return end
-  local range = cell.construction_radius + 8
+  local range = cell.construction_radius + 16
   local origin = self.entity.position
   local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
   --self:say("NICE")
@@ -439,7 +439,7 @@ end
 
 function Companion:search_for_nearby_targets()
   if not self.can_attack then return end
-  local range = 21 + 8
+  local range = 32
   local origin = self.entity.position
   local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
   --self:say("NICE")
@@ -580,9 +580,10 @@ function Companion:has_items()
 end
 
 function Companion:can_go_inactive()
-  if self:is_busy() then return end
   if self.out_of_energy then return end
+  if self:is_busy() then return end
   if self:has_items() then return end
+  if self:distance(self.player.position) > follow_range then return end
   return true
 end
 
@@ -1011,7 +1012,7 @@ local setup_search_offsets = function()
   --table.sort(search_offsets, function(a, b) return distance(a[1], {0,0}) < distance(b[1], {0,0}) end)
 
   for k, v in pairs (search_offsets) do
-    local i = (((k * 19) ^ 2) % #search_offsets) + 1
+    local i = (((k * 87)) % #search_offsets) + 1
     search_offsets[k], search_offsets[i] = search_offsets[i], search_offsets[k]
   end
 
