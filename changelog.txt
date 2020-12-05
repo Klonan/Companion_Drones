@@ -2,6 +2,7 @@
 Version: 1.0.13
 Date: ????
   Changes:
+    - Prevent giving commands to the companions with spidertron remotes.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.12
 Date: 2020-12-05
