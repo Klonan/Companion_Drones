@@ -3,6 +3,7 @@ Version: 1.0.13
 Date: ????
   Changes:
     - Prevent giving commands to the companions with spidertron remotes.
+    - Fix weird case of drone being stuck following but not responding to stimuli.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.12
 Date: 2020-12-05
