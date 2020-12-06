@@ -493,6 +493,7 @@ function Companion:update()
   end
 
   if self.is_getting_full or self.is_on_low_health or not self:is_busy() then
+    self.moving_to_destination = nil
     self:return_to_player()
   end
 
@@ -551,7 +552,12 @@ function Companion:insert_to_player_or_vehicle(stack)
   if inserted > 0 then return inserted end
 
   if self.player.vehicle then
-    return self.player.vehicle.insert(stack)
+    inserted = self.player.vehicle.insert(stack)
+    if inserted > 0 then return inserted end
+    if self.player.vehicle.train then
+      inserted = self.player.vehicle.train.insert(stack)
+      if inserted > 0 then return inserted end
+    end
   end
 
   return 0
@@ -559,7 +565,6 @@ function Companion:insert_to_player_or_vehicle(stack)
 end
 
 function Companion:try_to_shove_inventory()
-
   local inventory = self:get_inventory()
   local total_inserted = 0
   for k = 1, #inventory do
@@ -1352,6 +1357,7 @@ end
 local reschedule_companions = function()
   script_data.active_companions = {}
   for k, companion in pairs (script_data.companions) do
+    companion.moving_to_destination = nil
     companion:set_active()
   end
 end
