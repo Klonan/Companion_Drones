@@ -34,7 +34,7 @@ local get_fuel_items = function()
   end
   fuel_items = {}
   for k, item in pairs (game.item_prototypes) do
-    if item.fuel_value > 0 then
+    if item.fuel_value > 0 and item.fuel_category == "chemical" then
       table.insert(fuel_items, {name = item.name, count = 1, fuel_top_speed_multiplier = item.fuel_top_speed_multiplier})
     end
   end
