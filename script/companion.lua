@@ -116,10 +116,12 @@ local adjust_follow_behavior = function(player)
   local count = 0
   local guys = {}
 
+  local surface = player.surface
+
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
     if companion then
-      if not companion.active then
+      if not companion.active and (companion.entity.surface == surface) then
         count = count + 1
         guys[count] = companion
       end
@@ -1297,6 +1299,11 @@ local on_player_changed_surface = function(event)
   if not player_data then return end
 
   local player = game.get_player(event.player_index)
+  if not player.character then
+    --For the space exploration satellite viewer thing...
+    --If there is no character, lets just not go with the player.
+    return
+  end
   local surface = player.surface
   local position = player.position
 

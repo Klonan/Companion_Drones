@@ -3,6 +3,7 @@ Version: 1.0.14
 Date: 2020-12-08
   Changes:
     - Fix crash on entity destroyed in some circumstances.
+    - Simple attempt to fix interaction with the SpaceExploration navigation view.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.13
 Date: 2020-12-06
