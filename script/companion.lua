@@ -54,6 +54,7 @@ local get_companion = function(unit_number)
 
   if not companion.entity.valid then
     companion:on_destroyed()
+    return
   end
 
   return companion
