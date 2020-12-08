@@ -163,7 +163,8 @@ local adjust_follow_behavior = function(player)
       end
     end
     companion.entity.follow_offset = follow_offset
-    companion:set_speed(speed * companion:get_distance_boost(companion.entity.autopilot_destination))
+    companion:set_speed(speed + companion:get_distance_boost(companion.entity.autopilot_destination))
+    companion:try_to_refuel()
   end
 end
 
@@ -260,15 +261,8 @@ end
 function Companion:get_distance_boost(position)
 
   local distance = self:distance(position)
-  if true then
-    return 1 + (distance / 50)
-  end
+  return (distance / 50)
 
-  if distance <= 16 then
-    return 1
-  end
-
-  return 1 + ((distance - 16) / 320)
 end
 
 function Companion:set_speed(speed)
