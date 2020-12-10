@@ -237,7 +237,6 @@ function Companion:clear_active()
     script_data.active_companions[mod] = nil
   end
   self.active = false
-  self:clear_robots()
   adjust_follow_behavior(self.player)
 end
 
@@ -318,54 +317,7 @@ function Companion:check_equipment()
   local network = self.entity.logistic_network
   local max_robots = (network and network.robot_limit) or 0
   self.can_construct = max_robots > 0
-  --game.print(self.can_construct)
-
-  --[[
-
-  local robot_count = table_size(self.robots)
-
-  if robot_count ~= max_robots then
-
-    if robot_count > max_robots then
-      for k = 1, robot_count - max_robots do
-        local index, robot = next(self.robots)
-        if not index then break end
-        self.robots[index] = nil
-        robot.destroy()
-      end
-    end
-
-    if robot_count < max_robots then
-      local surface = self.entity.surface
-      local position = self.entity.position
-      position.y = position.y - 2
-      local force = self.entity.force
-      for k = 1, max_robots - robot_count do
-        local robot = surface.create_entity{name = "companion-construction-robot", position = position, force = force}
-        robot.logistic_network = network
-        self.robots[robot.unit_number] = robot
-        robot.destructible = false
-        robot.minable = false
-        self.entity.surface.create_entity
-        {
-          name = "inserter-beam",
-          position = self.entity.position,
-          target = robot,
-          source = self.entity,
-          force = self.entity.force,
-          source_offset = {0, 0}
-        }
-      end
-    end
-
-
-  end
-
-  for k, robot in pairs (self.robots) do
-    robot.logistic_network = network
-  end
-
-  ]]
+  self:get_inventory()[21].set_stack({name = "companion-construction-robot", count = max_robots})
   self.can_attack = false
 
   for k, equipment in pairs (grid.equipment) do
@@ -395,22 +347,15 @@ end
 
 function Companion:clear_robots()
   for k, robot in pairs (self.robots) do
-    robot.mine
-    {
-      inventory = self:get_inventory(),
-      force = true,
-      ignore_minable = true
-    }
+    if robot.valid then
+      robot.mine
+      {
+        inventory = self:get_inventory(),
+        force = true,
+        ignore_minable = true
+      }
+    end
     self.robots[k] = nil
-  end
-end
-
-function Companion:check_broken_robots()
-  --We are gathered here today, because we should have all our robots available to us. That is that the move to robot average has said.
-  local network = self.entity.logistic_network
-  if not network or (network.available_construction_robots ~= table_size(self.robots)) then
-    self:clear_robots()
-    self:check_equipment()
   end
 end
 
@@ -432,7 +377,6 @@ function Companion:move_to_robot_average()
     end
   end
   if count == 0 then
-    --self:check_broken_robots()
     return
   end
   position.x = ((position.x / count))-- + our_position.x) / 2
@@ -635,8 +579,6 @@ end
 function Companion:return_to_player()
 
   if not self.player.valid then return end
-
-  self:clear_robots()
 
   local distance = self:distance(self.player.position)
 
