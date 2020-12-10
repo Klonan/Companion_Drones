@@ -205,8 +205,8 @@ Companion.new = function(entity, player)
   companion:try_to_refuel()
   local inventory = companion:get_inventory()
   inventory.set_filter(21,"companion-construction-robot")
-  local stack = inventory[21]
-  stack.set_stack({name = "companion-construction-robot", count = 100})
+  --local stack = inventory[21]
+  --stack.set_stack({name = "companion-construction-robot", count = 100})
 
 end
 
@@ -317,7 +317,12 @@ function Companion:check_equipment()
   local network = self.entity.logistic_network
   local max_robots = (network and network.robot_limit) or 0
   self.can_construct = max_robots > 0
-  self:get_inventory()[21].set_stack({name = "companion-construction-robot", count = max_robots})
+  if self.can_construct then
+    self:get_inventory()[21].set_stack({name = "companion-construction-robot", count = max_robots})
+  else
+    self:get_inventory()[21].clear()
+  end
+
   self.can_attack = false
 
   for k, equipment in pairs (grid.equipment) do
@@ -565,7 +570,7 @@ function Companion:try_to_shove_inventory()
 end
 
 function Companion:has_items()
-  return not self:get_inventory()[1].valid_for_read
+  return self:get_inventory()[1].valid_for_read
 end
 
 function Companion:can_go_inactive()
