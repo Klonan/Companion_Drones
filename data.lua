@@ -6,7 +6,7 @@ bot.max_speed = 0.6
 bot.max_energy = "1000000MJ"
 bot.energy_per_tick = "0J"
 bot.speed_multiplier_when_out_of_energy = 1
-bot.energy_per_move = "1J"
+bot.energy_per_move = "0J"
 bot.min_to_charge = 0
 bot.max_to_charge = 0
 bot.working_sound = nil
@@ -33,7 +33,22 @@ bot.smoke = nil
 bot.water_reflection = nil
 bot.placeable_by =
 {
-  {item = "construction-robot", count = 0}
+  {item = "companion-construction-robot", count = 1}
+}
+bot.created_effect =
+{
+  type = "direct",
+  action_delivery =
+  {
+    type = "instant",
+    target_effects =
+    {
+      {
+        type = "script",
+        effect_id = "companion-robot-spawned"
+      }
+    }
+  }
 }
 
 local bot_item =
@@ -44,9 +59,9 @@ local bot_item =
   icon_size = 200,
   subgroup = "logistic-network",
   order = "a[robot]-b[construction-robot]",
-  --place_result = "companion-construction-robot",
-  stack_size = 50,
-  flags = {"hidden"}
+  place_result = "companion-construction-robot",
+  stack_size = 500,
+  flags = {"hidden", "only-in-cursor"}
 }
 
 local equipment =
@@ -78,13 +93,13 @@ local equipment =
     usage_priority = "secondary-input",
   },
 
-  charging_energy = "10kW",
+  charging_energy = "0kW",
   spawn_minimum = "0W",
 
   robot_limit = 4,
   construction_radius = (100/7) * 0.5,
   draw_construction_radius_visualization = false,
-  spawn_and_station_height = -1000,
+  spawn_and_station_height = 1,
   spawn_and_station_shadow_height_offset = 0,
   charge_approach_distance = 0,
   robots_shrink_when_entering_and_exiting = true,
@@ -106,7 +121,7 @@ local equipment =
   charging_station_count = 0,
   charging_distance = 0,
   charging_threshold_distance = 0,
-  robot_vertical_acceleration = -100,
+  robot_vertical_acceleration = 10,
   categories = {"companion"}
 }
 
@@ -275,7 +290,7 @@ local drone =
   --dying_explosion = "spidertron-explosion",
   energy_per_hit_point = 1,
   guns = {},
-  inventory_size = 20,
+  inventory_size = 21,
   equipment_grid = "companion-equipment-grid",
   trash_inventory_size = 0,
   height = 2,

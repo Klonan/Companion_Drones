@@ -203,6 +203,10 @@ Companion.new = function(entity, player)
   companion:set_active()
   companion.flagged_for_equipment_changed = true
   companion:try_to_refuel()
+  local inventory = companion:get_inventory()
+  inventory.set_filter(21,"companion-construction-robot")
+  local stack = inventory[21]
+  stack.set_stack({name = "companion-construction-robot", count = 100})
 
 end
 
@@ -316,6 +320,8 @@ function Companion:check_equipment()
   self.can_construct = max_robots > 0
   --game.print(self.can_construct)
 
+  --[[
+
   local robot_count = table_size(self.robots)
 
   if robot_count ~= max_robots then
@@ -359,6 +365,7 @@ function Companion:check_equipment()
     robot.logistic_network = network
   end
 
+  ]]
   self.can_attack = false
 
   for k, equipment in pairs (grid.equipment) do
@@ -368,6 +375,22 @@ function Companion:check_equipment()
     end
   end
 
+end
+
+function Companion:robot_spawned(robot)
+  self:set_active()
+  self.robots[robot.unit_number] = robot
+  robot.destructible = false
+  robot.minable = false
+  self.entity.surface.create_entity
+  {
+    name = "inserter-beam",
+    position = self.entity.position,
+    target = robot,
+    source = self.entity,
+    force = self.entity.force,
+    source_offset = {0, 0}
+  }
 end
 
 function Companion:clear_robots()
@@ -399,17 +422,17 @@ function Companion:move_to_robot_average()
   local our_position = self.entity.position
   local count = 0
   for k, robot in pairs (self.robots) do
-    local robot_position = robot.position
-    local dx = math.abs(robot_position.x - our_position.x)
-    local dy = math.abs((robot_position.y + 2) - our_position.y)
-    if dx > 0.5 or dy > 0.5 then
+    if robot.valid then
+      local robot_position = robot.position
       position.x = position.x + robot_position.x
       position.y = position.y + robot_position.y
       count = count + 1
+    else
+      self.robots[k] = nil
     end
   end
   if count == 0 then
-    self:check_broken_robots()
+    --self:check_broken_robots()
     return
   end
   position.x = ((position.x / count))-- + our_position.x) / 2
@@ -564,7 +587,7 @@ end
 function Companion:try_to_shove_inventory()
   local inventory = self:get_inventory()
   local total_inserted = 0
-  for k = 1, #inventory do
+  for k = 1, 20 do
     local stack = inventory[k]
     if not (stack and stack.valid_for_read) then break end
     local inserted = self:insert_to_player_or_vehicle(stack)
@@ -598,7 +621,7 @@ function Companion:try_to_shove_inventory()
 end
 
 function Companion:has_items()
-  return not self:get_inventory().is_empty()
+  return not self:get_inventory()[1].valid_for_read
 end
 
 function Companion:can_go_inactive()
@@ -1217,16 +1240,7 @@ local on_spider_command_completed = function(event)
   companion:on_spider_command_completed()
 end
 
-
---[[effect_id :: string: The effect_id specified in the trigger effect.
-surface_index :: uint: The surface the effect happened on.
-source_position :: Position (optional)
-source_entity :: LuaEntity (optional)
-target_position :: Position (optional)
-target_entity :: LuaEntity (optional)]]
-local on_script_trigger_effect = function(event)
-  local id = event.effect_id
-  if id ~= "companion-attack" then return end
+local companion_attack_trigger = function(event)
 
   local source_entity = event.source_entity
   if not (source_entity and source_entity.valid) then
@@ -1242,7 +1256,44 @@ local on_script_trigger_effect = function(event)
   if companion then
     companion:attack(target_entity)
   end
+end
 
+local companion_robot_spawned_trigger = function(event)
+
+  local source_entity = event.source_entity
+  if not (source_entity and source_entity.valid) then
+    return
+  end
+
+  local network = source_entity.logistic_network
+  if not network then return end
+
+  local owner = network.cells[1].owner
+
+  local companion = get_companion(owner.unit_number)
+  if companion then
+    companion:robot_spawned(source_entity)
+  end
+end
+
+--[[effect_id :: string: The effect_id specified in the trigger effect.
+surface_index :: uint: The surface the effect happened on.
+source_position :: Position (optional)
+source_entity :: LuaEntity (optional)
+target_position :: Position (optional)
+target_entity :: LuaEntity (optional)]]
+
+local on_script_trigger_effect = function(event)
+  local id = event.effect_id
+  --game.print(id)
+  if id == "companion-attack" then
+    companion_attack_trigger(event)
+    return
+  end
+
+  if id == "companion-robot-spawned" then
+    companion_robot_spawned_trigger(event)
+  end
 
 end
 
