@@ -1,6 +1,7 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
-bot.max_payload_size = 1
+bot.localised_name = "Companion construction laser bank. (DO NOT TOUCH)"
+bot.max_payload_size = 5
 bot.speed = 0.4
 bot.max_speed = 0.4
 bot.max_energy = "1000000MJ"
