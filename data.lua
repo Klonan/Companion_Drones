@@ -1,8 +1,8 @@
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.max_payload_size = 1
-bot.speed = 0.6
-bot.max_speed = 0.6
+bot.speed = 0.4
+bot.max_speed = 0.4
 bot.max_energy = "1000000MJ"
 bot.energy_per_tick = "0J"
 bot.speed_multiplier_when_out_of_energy = 1
@@ -96,8 +96,8 @@ local equipment =
   charging_energy = "0kW",
   spawn_minimum = "0W",
 
-  robot_limit = 4,
-  construction_radius = (100/7) * 0.5,
+  robot_limit = 6,
+  construction_radius = 10,
   draw_construction_radius_visualization = false,
   spawn_and_station_height = 1,
   spawn_and_station_shadow_height_offset = 0,

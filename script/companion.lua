@@ -1,6 +1,6 @@
 local util = require("util")
 local follow_range = 12
-local companion_update_interval = 15
+local companion_update_interval = 17
 local base_speed = 0.25
 local build_speed = 0.30
 local sticker_life = 100
@@ -200,17 +200,21 @@ Companion.new = function(entity, player)
   script_data.companions[entity.unit_number] = companion
   script.register_on_entity_destroyed(entity)
 
-  companion:set_active()
-  companion.flagged_for_equipment_changed = true
   companion:try_to_refuel()
-  local inventory = companion:get_inventory()
-  inventory.set_filter(21,"companion-construction-robot")
-  --local stack = inventory[21]
-  --stack.set_stack({name = "companion-construction-robot", count = 100})
+  companion:set_active()
 
 end
 
+function Companion:filter_robot_stack()
+  local inventory = self:get_inventory()
+  if not inventory.set_filter(21,"companion-construction-robot") then
+    inventory[21].clear()
+    inventory.set_filter(21,"companion-construction-robot")
+  end
+end
+
 function Companion:set_active()
+  self:filter_robot_stack()
   self.flagged_for_equipment_changed = true
   local mod = self.unit_number % companion_update_interval
   local list = script_data.active_companions[mod]
@@ -365,7 +369,7 @@ function Companion:clear_robots()
 end
 
 function Companion:move_to_robot_average()
-  if self.moving_to_destination then return end
+  --if self.moving_to_destination then return end
   if not next(self.robots) then return end
 
   local position = {x = 0, y = 0}
@@ -1077,7 +1081,7 @@ local perform_job_search = function(player, player_data)
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
-    if companion and (not companion.active) and companion.can_construct then
+    if companion and (not companion.active) and companion.can_construct and not companion:move_to_robot_average() then
       free_companion = companion
       break
     end
@@ -1160,7 +1164,7 @@ local update_active_companions = function(event)
 
 end
 
-local follow_mod = 31
+local follow_mod = 97
 local check_follow_update = function(event)
   if not next(script_data.player_data) then return end
   local players = game.players
@@ -1370,6 +1374,8 @@ local on_player_driving_changed_state = function(event)
   if player.vehicle.name == "companion" then
     player.driving = false
   end
+
+  adjust_follow_behavior(player)
 
 end
 
