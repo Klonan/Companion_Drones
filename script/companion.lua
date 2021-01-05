@@ -10,7 +10,8 @@ local script_data =
   companions = {},
   active_companions = {},
   player_data = {},
-  search_schedule = {}
+  search_schedule = {},
+  specific_job_search_queue = {}
 }
 
 local repair_tools
@@ -1117,18 +1118,20 @@ local setup_search_offsets = function()
 end
 setup_search_offsets()
 
+local get_free_companion_for_construction = function(player_data)
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion and (not companion.active) and companion.can_construct and not companion:move_to_robot_average() then
+      return companion
+    end
+  end
+end
+
 local perform_job_search = function(player, player_data)
 
   if not player.is_shortcut_toggled("companion-construction-toggle") then return end
 
-  local free_companion
-  for unit_number, bool in pairs (player_data.companions) do
-    local companion = get_companion(unit_number)
-    if companion and (not companion.active) and companion.can_construct and not companion:move_to_robot_average() then
-      free_companion = companion
-      break
-    end
-  end
+  local free_companion = get_free_companion_for_construction(player_data)
   if not free_companion then return end
 
   player_data.last_job_search_offset = player_data.last_job_search_offset + 1
@@ -1179,8 +1182,31 @@ local perform_attack_search = function(player, player_data)
 
 end
 
+local process_specific_job_queue = function()
+  local player_index, areas = next(script_data.specific_job_search_queue)
+  local i, area = next(areas)
+
+  local player_data = script_data.player_data[player_index]
+  if not (player_data and i) then
+    script_data.specific_job_search_queue[player_index] = nil
+    return
+  end
+
+  areas[i] = nil
+
+  local free_companion = get_free_companion_for_construction(player_data)
+  if not free_companion then return end
+
+  free_companion:try_to_find_work(area)
+
+end
+
 local job_mod = 5
 local check_job_search = function(event)
+
+  if next(script_data.specific_job_search_queue) then
+    process_specific_job_queue()
+  end
 
   if not next(script_data.player_data) then return end
   local players = game.players
@@ -1492,6 +1518,29 @@ local on_lua_shortcut = function(event)
   end
 end
 
+local dissect_and_queue_area = function(player_index, area)
+  local player_queue = script_data.specific_job_search_queue[player_index]
+  if not player_queue then
+    player_queue = {}
+    script_data.specific_job_search_queue[player_index] = player_queue
+  end
+
+  for x = area.left_top.x, area.right_bottom.x, 50 do
+    for y = area.left_top.y, area.right_bottom.y, 50 do
+      table.insert(player_queue, {{x, y}, {x + 50, y + 50}})
+    end
+  end
+
+end
+
+local on_player_deconstructed_area = function(event)
+  local player_data = script_data.player_data[event.player_index]
+  if not player_data then return end
+
+  dissect_and_queue_area(event.player_index, event.area)
+
+end
+
 local lib = {}
 
 lib.events =
@@ -1515,6 +1564,7 @@ lib.events =
 
   [defines.events.on_player_mined_entity] = on_player_mined_entity,
   [defines.events.on_lua_shortcut] = on_lua_shortcut,
+  [defines.events.on_player_deconstructed_area] = on_player_deconstructed_area,
 }
 
 lib.on_load = function()
@@ -1572,6 +1622,8 @@ lib.on_configuration_changed = function()
   if script_data.tick_updates then
     script_data.tick_updates = nil
   end
+
+  script_data.specific_job_search_queue = script_data.specific_job_search_queue or {}
 
   reschedule_companions()
 end
