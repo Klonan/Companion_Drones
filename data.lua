@@ -388,7 +388,7 @@ local leg =
   name = "companion-leg",
 
   localised_name = {"entity-name.spidertron-leg"},
-  collision_box = {{-0, -0}, {0, 0}},
+  collision_box = nil,
   collision_mask = {},
   selection_box = {{-0, -0}, {0, 0}},
   icon = "__base__/graphics/icons/spidertron.png",

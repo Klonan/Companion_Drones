@@ -1,8 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.16
+Date: ????
+  Changes:
+    - Some fixes to the laser bot items.
+---------------------------------------------------------------------------------------------------
 Version: 1.0.15
 Date: 2020-12-12
   Changes:
-    - Changing the way contsruction laser/robots are deployed to try to make them work nicer.
+    - Changing the way construction laser/robots are deployed to try to make them work nicer.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.14
 Date: 2020-12-08

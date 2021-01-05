@@ -324,6 +324,7 @@ function Companion:check_equipment()
   if self.can_construct then
     self:get_inventory()[21].set_stack({name = "companion-construction-robot", count = max_robots})
   else
+    self:clear_robots()
     self:get_inventory()[21].clear()
   end
 
@@ -1402,6 +1403,11 @@ local on_player_used_spider_remote = function(event)
 
 end
 
+local on_player_mined_entity = function(event)
+  local player = game.get_player(event.player_index)
+  player.remove_item{name = "companion-construction-robot", count = 1000}
+end
+
 local lib = {}
 
 lib.events =
@@ -1411,15 +1417,19 @@ lib.events =
   [defines.events.on_tick] = on_tick,
   [defines.events.on_spider_command_completed] = on_spider_command_completed,
   [defines.events.on_script_trigger_effect] = on_script_trigger_effect,
+  [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
+
   [defines.events.on_player_placed_equipment] = on_player_placed_equipment,
   [defines.events.on_player_removed_equipment] = on_player_removed_equipment,
-  [defines.events.on_entity_settings_pasted] = on_entity_settings_pasted,
+
   [defines.events.on_player_changed_surface] = on_player_changed_surface,
   [defines.events.on_player_left_game] = on_player_left_game,
   [defines.events.on_player_joined_game] = on_player_joined_game,
   [defines.events.on_player_changed_force] = on_player_changed_force,
   [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
   [defines.events.on_player_used_spider_remote] = on_player_used_spider_remote,
+
+  [defines.events.on_player_mined_entity] = on_player_mined_entity
 }
 
 lib.on_load = function()
