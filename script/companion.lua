@@ -182,6 +182,10 @@ Companion.new = function(entity, player)
       last_attack_search_offset = 0
     }
     script_data.player_data[player.index] = player_data
+    player.set_shortcut_available("companion-attack-toggle", true)
+    player.set_shortcut_toggled("companion-attack-toggle", true)
+    player.set_shortcut_available("companion-construction-toggle", true)
+    player.set_shortcut_toggled("companion-construction-toggle", true)
   end
   player_data.companions[entity.unit_number] = true
 
@@ -205,16 +209,33 @@ Companion.new = function(entity, player)
 
 end
 
-function Companion:filter_robot_stack()
+function Companion:set_robot_stack()
   local inventory = self:get_inventory()
   if not inventory.set_filter(21,"companion-construction-robot") then
     inventory[21].clear()
     inventory.set_filter(21,"companion-construction-robot")
   end
+
+  if self.can_construct then
+    inventory[21].set_stack({name = "companion-construction-robot", count = 100})
+  else
+    inventory[21].clear()
+  end
+
+end
+
+
+function Companion:clear_robot_stack()
+  local inventory = self:get_inventory()
+  if not inventory.set_filter(21,"companion-construction-robot") then
+    inventory[21].clear()
+    inventory.set_filter(21,"companion-construction-robot")
+  end
+  inventory[21].clear()
 end
 
 function Companion:set_active()
-  self:filter_robot_stack()
+  self:set_robot_stack()
   self.flagged_for_equipment_changed = true
   local mod = self.unit_number % companion_update_interval
   local list = script_data.active_companions[mod]
@@ -241,6 +262,7 @@ function Companion:clear_active()
     script_data.active_companions[mod] = nil
   end
   self.active = false
+  self:clear_robots()
   adjust_follow_behavior(self.player)
 end
 
@@ -322,11 +344,11 @@ function Companion:check_equipment()
   local max_robots = (network and network.robot_limit) or 0
   self.can_construct = max_robots > 0
   if self.can_construct then
-    self:get_inventory()[21].set_stack({name = "companion-construction-robot", count = max_robots})
+    self:set_robot_stack()
   else
     self:clear_robots()
-    self:get_inventory()[21].clear()
   end
+
 
   self.can_attack = false
 
@@ -367,6 +389,7 @@ function Companion:clear_robots()
     end
     self.robots[k] = nil
   end
+  self:clear_robot_stack()
 end
 
 function Companion:move_to_robot_average()
@@ -421,6 +444,7 @@ function Companion:update_state_flags()
 end
 
 function Companion:search_for_nearby_work()
+  if not self:player_wants_construction() then return end
   if not self.can_construct then return end
   local cell = self.entity.logistic_cell
   if not cell then return end
@@ -432,6 +456,7 @@ function Companion:search_for_nearby_work()
 end
 
 function Companion:search_for_nearby_targets()
+  if not self:player_wants_attack() then return end
   if not self.can_attack then return end
   local range = 32
   local origin = self.entity.position
@@ -496,6 +521,10 @@ function Companion:on_destroyed()
 
   if not next(player_data.companions) then
     script_data.player_data[self.player.index] = nil
+    self.player.set_shortcut_available("companion-attack-toggle", false)
+    self.player.set_shortcut_toggled("companion-attack-toggle", false)
+    self.player.set_shortcut_available("companion-construction-toggle", false)
+    self.player.set_shortcut_toggled("companion-construction-toggle", false)
   end
 
   adjust_follow_behavior(self.player)
@@ -746,7 +775,18 @@ function Companion:set_job_destination(position)
   self:set_active()
 end
 
+function Companion:player_wants_attack()
+  return self.player.is_shortcut_toggled("companion-attack-toggle")
+end
+
+function Companion:player_wants_construction()
+  return self.player.is_shortcut_toggled("companion-construction-toggle")
+end
+
 function Companion:attack(entity)
+
+  if not self:player_wants_attack() then return end
+
   --self:say("Attacking "..entity.name.. " "..self.entity.force.name.." "..entity.force.name)
   local position = self.entity.position
   for k, offset in pairs  {0, -0.25, 0.25} do
@@ -1079,6 +1119,8 @@ setup_search_offsets()
 
 local perform_job_search = function(player, player_data)
 
+  if not player.is_shortcut_toggled("companion-construction-toggle") then return end
+
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
@@ -1107,6 +1149,8 @@ local perform_job_search = function(player, player_data)
 end
 
 local perform_attack_search = function(player, player_data)
+
+  if not player.is_shortcut_toggled("companion-attack-toggle") then return end
 
   local free_companion
   for unit_number, bool in pairs (player_data.companions) do
@@ -1408,6 +1452,46 @@ local on_player_mined_entity = function(event)
   player.remove_item{name = "companion-construction-robot", count = 1000}
 end
 
+local recall_fighting_robots = function(player)
+  local player_data = script_data.player_data[player.index]
+  if not player_data then return end
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      if companion.is_in_combat then
+        companion:return_to_player()
+      end
+    end
+  end
+end
+
+local recall_constructing_robots = function(player)
+  local player_data = script_data.player_data[player.index]
+  if not player_data then return end
+  for unit_number, bool in pairs (player_data.companions) do
+    local companion = get_companion(unit_number)
+    if companion then
+      if next(companion.robots) then
+        companion:clear_robots()
+        companion:return_to_player()
+      end
+    end
+  end
+end
+
+local on_lua_shortcut = function(event)
+  local player = game.get_player(event.player_index)
+  local name = event.prototype_name
+  if name == "companion-attack-toggle" then
+    player.set_shortcut_toggled(name, not player.is_shortcut_toggled(name))
+    recall_fighting_robots(player)
+  end
+  if name == "companion-construction-toggle" then
+    player.set_shortcut_toggled(name, not player.is_shortcut_toggled(name))
+    recall_constructing_robots(player)
+  end
+end
+
 local lib = {}
 
 lib.events =
@@ -1429,7 +1513,8 @@ lib.events =
   [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
   [defines.events.on_player_used_spider_remote] = on_player_used_spider_remote,
 
-  [defines.events.on_player_mined_entity] = on_player_mined_entity
+  [defines.events.on_player_mined_entity] = on_player_mined_entity,
+  [defines.events.on_lua_shortcut] = on_lua_shortcut,
 }
 
 lib.on_load = function()

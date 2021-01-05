@@ -825,6 +825,73 @@ local speed_sticker =
   vehicle_friction_modifier_to = 1,
 }
 
+local attack_icon =
+{
+  filename = "__Companion_Drones__/drone-attack-shortcut.png",
+  priority = "extra-high-no-scale",
+  size = 200,
+  scale = 1,
+  flags = {"icon"},
+}
+
+local attack_icon_disabled =
+{
+  filename = "__Companion_Drones__/drone-attack-shortcut-disabled.png",
+  priority = "extra-high-no-scale",
+  size = 200,
+  scale = 1,
+  flags = {"icon"},
+}
+
+local attack_shortcut =
+{
+  type = "shortcut",
+  name = "companion-attack-toggle",
+  localised_name = {"companion-attack-toggle"},
+  order = "a[companion-drones]",
+  action = "lua",
+  style = "default",
+  icon = attack_icon,
+  small_icon = attack_icon,
+  disabled_icon = attack_icon_disabled,
+  disabled_small_icon = attack_icon_disabled,
+  toggleable = true
+}
+
+
+local construct_icon =
+{
+  filename = "__Companion_Drones__/drone-construction-shortcut.png",
+  priority = "extra-high-no-scale",
+  size = 200,
+  scale = 1,
+  flags = {"icon"},
+}
+
+local construct_icon_disabled =
+{
+  filename = "__Companion_Drones__/drone-construction-shortcut-disabled.png",
+  priority = "extra-high-no-scale",
+  size = 200,
+  scale = 1,
+  flags = {"icon"},
+}
+
+local construct_shortcut =
+{
+  type = "shortcut",
+  name = "companion-construction-toggle",
+  localised_name = {"companion-construction-toggle"},
+  order = "a[companion-drones]",
+  action = "lua",
+  style = "default",
+  icon = construct_icon,
+  small_icon = construct_icon,
+  disabled_icon = construct_icon_disabled,
+  disabled_small_icon = construct_icon_disabled,
+  toggleable = true
+}
+
 data:extend
 {
   bot,
@@ -849,6 +916,8 @@ data:extend
   reactor,
   reactor_item,
   category,
-  speed_sticker
+  speed_sticker,
+  attack_shortcut,
+  construct_shortcut
 
 }
