@@ -3,6 +3,7 @@ Version: 1.0.16
 Date: ????
   Changes:
     - Some fixes to the laser bot items.
+    - Added shortcuts for enabling/disabling the combat and construction.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.15
 Date: 2020-12-12
