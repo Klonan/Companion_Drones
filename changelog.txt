@@ -4,6 +4,7 @@ Date: ????
   Changes:
     - Some fixes to the laser bot items.
     - Added shortcuts for enabling/disabling the combat and construction.
+    - Made the companions more responsive to direct player deconstruction and blueprinting.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.15
 Date: 2020-12-12
