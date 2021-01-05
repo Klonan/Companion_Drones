@@ -1182,39 +1182,45 @@ local perform_attack_search = function(player, player_data)
 
 end
 
-local process_specific_job_queue = function()
-  local player_index, areas = next(script_data.specific_job_search_queue)
+local process_specific_job_queue = function(player_index, player_data)
+
+  local areas = script_data.specific_job_search_queue[player_index]
   local i, area = next(areas)
 
-  local player_data = script_data.player_data[player_index]
-  if not (player_data and i) then
+  if not i then
     script_data.specific_job_search_queue[player_index] = nil
     return
   end
 
-  areas[i] = nil
-
   local free_companion = get_free_companion_for_construction(player_data)
-  if not free_companion then return end
+  if not free_companion then
+    return
+  end
 
+  --free_companion:say(i)
   free_companion:try_to_find_work(area)
+
+  areas[i] = nil
 
 end
 
 local job_mod = 5
 local check_job_search = function(event)
 
-  if next(script_data.specific_job_search_queue) then
-    process_specific_job_queue()
-  end
-
   if not next(script_data.player_data) then return end
+
+  local job_search_queue = script_data.specific_job_search_queue
   local players = game.players
   for player_index, player_data in pairs(script_data.player_data) do
     if (player_index + event.tick) % job_mod == 0 then
       local player = players[player_index]
       if player.connected then
-        perform_job_search(player, player_data)
+        local specific_areas = job_search_queue[player_index]
+        if specific_areas then
+          process_specific_job_queue(player_index, player_data)
+        else
+          perform_job_search(player, player_data)
+        end
         perform_attack_search(player, player_data)
       end
     end
@@ -1518,6 +1524,8 @@ local on_lua_shortcut = function(event)
   end
 end
 
+local dissect_area_size = 32
+
 local dissect_and_queue_area = function(player_index, area)
   local player_queue = script_data.specific_job_search_queue[player_index]
   if not player_queue then
@@ -1525,19 +1533,64 @@ local dissect_and_queue_area = function(player_index, area)
     script_data.specific_job_search_queue[player_index] = player_queue
   end
 
-  for x = area.left_top.x, area.right_bottom.x, 50 do
-    for y = area.left_top.y, area.right_bottom.y, 50 do
-      table.insert(player_queue, {{x, y}, {x + 50, y + 50}})
+  local count = #player_queue
+  for x = area.left_top.x, area.right_bottom.x, dissect_area_size do
+    for y = area.left_top.y, area.right_bottom.y, dissect_area_size do
+      table.insert(player_queue, (count > 0 and math.random(count)) or 1, {{x, y}, {x + dissect_area_size, y + dissect_area_size}})
+      count = count + 1
     end
   end
 
 end
 
 local on_player_deconstructed_area = function(event)
-  local player_data = script_data.player_data[event.player_index]
-  if not player_data then return end
+  local player = game.get_player(event.player_index)
+
+  if not player.is_shortcut_toggled("companion-construction-toggle") then
+    return
+  end
 
   dissect_and_queue_area(event.player_index, event.area)
+
+end
+
+local get_blueprint_area = function(player, offset)
+
+  local x1, y1, x2, y2
+
+  local entities = player.get_blueprint_entities()
+  for k, entity in pairs (entities) do
+    local position = entity.position
+    x1 = math.min(x1 or position.x, position.x)
+    y1 = math.min(y1 or position.y, position.y)
+    x2 = math.max(x2 or position.x, position.x)
+    y2 = math.max(y2 or position.y, position.y)
+  end
+
+  -- I am lazy, not going to bother with rotations and flips...
+  -- So just get the max area
+  local lazy = true
+  if lazy then
+    r = math.min(x2 - x1, y2 - y1)
+    return {left_top = {x = offset.x - r, y = offset.y - r}, right_bottom = {x = offset.x + r, y = offset.y + r}}
+  end
+
+end
+
+local on_pre_build = function(event)
+  local player = game.get_player(event.player_index)
+
+  if not (player.is_cursor_blueprint()) then return end
+
+  if not player.is_shortcut_toggled("companion-construction-toggle") then
+    return
+  end
+
+  -- I am lazy, not going to bother with rotations and flips...
+
+  local area = get_blueprint_area(player, event.position)
+  dissect_and_queue_area(event.player_index, area)
+
 
 end
 
@@ -1565,6 +1618,7 @@ lib.events =
   [defines.events.on_player_mined_entity] = on_player_mined_entity,
   [defines.events.on_lua_shortcut] = on_lua_shortcut,
   [defines.events.on_player_deconstructed_area] = on_player_deconstructed_area,
+  [defines.events.on_pre_build] = on_pre_build,
 }
 
 lib.on_load = function()
