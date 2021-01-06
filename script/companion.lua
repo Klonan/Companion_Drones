@@ -1198,7 +1198,11 @@ local process_specific_job_queue = function(player_index, player_data)
   end
 
   --free_companion:say(i)
-  free_companion:try_to_find_work(area)
+  --free_companion.entity.surface.create_entity{name = "flying-text", position = area[1], text = i}
+  --free_companion.entity.surface.create_entity{name = "flying-text", position = area[2], text = i}
+  if free_companion:distance(area[1]) < 250 then
+    free_companion:try_to_find_work(area)
+  end
 
   areas[i] = nil
 
@@ -1556,9 +1560,16 @@ end
 
 local get_blueprint_area = function(player, offset)
 
-  local x1, y1, x2, y2
 
   local entities = player.get_blueprint_entities()
+
+  if not entities then
+    -- Tile blueprint
+    local r = dissect_area_size
+    return {left_top = {x = offset.x - r, y = offset.y - r}, right_bottom = {x = offset.x + r, y = offset.y + r}}
+  end
+
+  local x1, y1, x2, y2
   for k, entity in pairs (entities) do
     local position = entity.position
     x1 = math.min(x1 or position.x, position.x)
@@ -1571,7 +1582,7 @@ local get_blueprint_area = function(player, offset)
   -- So just get the max area
   local lazy = true
   if lazy then
-    r = math.min(x2 - x1, y2 - y1)
+    local r = math.min(x2 - x1, y2 - y1)
     return {left_top = {x = offset.x - r, y = offset.y - r}, right_bottom = {x = offset.x + r, y = offset.y + r}}
   end
 
@@ -1663,6 +1674,16 @@ lib.on_configuration_changed = function()
       if gui.companion_gui then
         gui.companion_gui.destroy()
       end
+    end
+
+    if not player.is_shortcut_available("companion-attack-toggle") then
+      player.set_shortcut_available("companion-attack-toggle", true)
+      player.set_shortcut_toggled("companion-attack-toggle", true)
+    end
+
+    if not player.is_shortcut_available("companion-construction-toggle") then
+      player.set_shortcut_available("companion-construction-toggle", true)
+      player.set_shortcut_toggled("companion-construction-toggle", true)
     end
 
   end
