@@ -1,0 +1,1 @@
+data.raw["spider-leg"]["companion-leg"].collision_mask = {}

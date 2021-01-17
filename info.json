@@ -1,11 +1,15 @@
 {
   "name": "Companion_Drones",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "title": "Companion Drones",
   "author": "Klonan",
   "contact": "",
   "homepage": "",
   "description": "Adds friends",
-  "dependencies": ["base >= 1.1.5"],
+  "dependencies": [
+    "base >= 1.1.5",
+    "(?)alien-biomes",
+    "(?)space-exploration"
+  ],
   "factorio_version": "1.1"
 }
