@@ -619,7 +619,7 @@ end
 function Companion:return_to_player()
 
   if not self.player.valid then return end
-  
+
   self.moving_to_destination = nil
   local distance = self:distance(self.player.position)
 
@@ -1622,6 +1622,7 @@ local on_player_created = function(event)
       force = player.force
     }
     entity.insert("coal")
+    entity.color = player.color
     local grid = entity.grid
     grid.put{name = "companion-reactor-equipment"}
     grid.put{name = "companion-defense-equipment"}
