@@ -3,6 +3,7 @@ Version: 1.0.19
 Date: 2021-02-11
   Changes:
     - Made companions just spawn when the game starts instead of giving the items.
+    - Fix companions becoming unresponsive when toggling combat.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.18
 Date: 2021-01-17

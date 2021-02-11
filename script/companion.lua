@@ -619,7 +619,8 @@ end
 function Companion:return_to_player()
 
   if not self.player.valid then return end
-
+  
+  self.moving_to_destination = nil
   local distance = self:distance(self.player.position)
 
   if distance <= follow_range then
