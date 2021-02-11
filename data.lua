@@ -485,8 +485,8 @@ local gun =
   attack_parameters =
   {
     type = "beam",
-    warmup = 10,
-    cooldown = 20,
+    warmup = 20,
+    cooldown = 15,
     cooldown_deviation = 0.1,
     range = 21,
     --source_direction_count = 64,
@@ -573,7 +573,7 @@ local plasma_projectile =
         },
         {
           type = "damage",
-          damage = {amount = 10, type = "laser"}
+          damage = {amount = 20, type = "laser"}
         },
       }
     }
