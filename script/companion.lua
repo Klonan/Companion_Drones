@@ -1042,6 +1042,7 @@ function Companion:teleport(position, surface)
 
   self.entity.teleport(position, surface)
   self:set_active()
+  self:return_to_player()
 end
 
 function Companion:change_force(force)
@@ -1419,7 +1420,7 @@ local on_player_joined_game = function(event)
   for unit_number, bool in pairs (player_data.companions) do
     local companion = get_companion(unit_number)
     if companion then
-      companion:teleport(position, surface)
+      companion:teleport({position.x + math.random(-20, 20), position.y + math.random(-20, 20)}, surface)
     end
   end
 
@@ -1605,6 +1606,30 @@ local on_pre_build = function(event)
 
 end
 
+local on_player_created = function(event)
+  local player = game.get_player(event.player_index)
+  if not player then return end
+
+  local surface = player.surface
+  local position = player.position
+
+  for k = 1, 2 do
+    local entity = surface.create_entity
+    {
+      name = "companion",
+      position = position,
+      force = player.force
+    }
+    entity.insert("coal")
+    local grid = entity.grid
+    grid.put{name = "companion-reactor-equipment"}
+    grid.put{name = "companion-defense-equipment"}
+    grid.put{name = "companion-shield-equipment"}
+    grid.put{name = "companion-roboport-equipment"}
+    local companion = Companion.new(entity, player)
+  end
+end
+
 local lib = {}
 
 lib.events =
@@ -1622,6 +1647,7 @@ lib.events =
   [defines.events.on_player_changed_surface] = on_player_changed_surface,
   [defines.events.on_player_left_game] = on_player_left_game,
   [defines.events.on_player_joined_game] = on_player_joined_game,
+  [defines.events.on_player_created] = on_player_created,
   [defines.events.on_player_changed_force] = on_player_changed_force,
   [defines.events.on_player_driving_changed_state] = on_player_driving_changed_state,
   [defines.events.on_player_used_spider_remote] = on_player_used_spider_remote,
@@ -1641,15 +1667,6 @@ end
 
 lib.on_init = function()
   global.companion = global.companion or script_data
-  if remote.interfaces["freeplay"] then
-    local items = remote.call("freeplay", "get_created_items")
-    items["companion"] = 2
-    items["companion-roboport-equipment"] = 2
-    items["companion-reactor-equipment"] = 2
-    items["companion-defense-equipment"] = 2
-    items["companion-shield-equipment"] = 2
-    remote.call("freeplay", "set_created_items", items)
-  end
   local force = game.forces.player
   if force.max_failed_attempts_per_tick_per_construction_queue == 1 then
     force.max_failed_attempts_per_tick_per_construction_queue = 4
