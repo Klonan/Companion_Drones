@@ -1693,16 +1693,18 @@ lib.on_configuration_changed = function()
       if gui.companion_gui then
         gui.companion_gui.destroy()
       end
-    end
 
-    if not player.is_shortcut_available("companion-attack-toggle") then
-      player.set_shortcut_available("companion-attack-toggle", true)
-      player.set_shortcut_toggled("companion-attack-toggle", true)
-    end
+      if not player.is_shortcut_available("companion-attack-toggle") then
+        player.set_shortcut_available("companion-attack-toggle", true)
+        player.set_shortcut_toggled("companion-attack-toggle", true)
+      end
 
-    if not player.is_shortcut_available("companion-construction-toggle") then
-      player.set_shortcut_available("companion-construction-toggle", true)
-      player.set_shortcut_toggled("companion-construction-toggle", true)
+      if not player.is_shortcut_available("companion-construction-toggle") then
+        player.set_shortcut_available("companion-construction-toggle", true)
+        player.set_shortcut_toggled("companion-construction-toggle", true)
+      end
+    else
+      script_data.player_data[player_index] = nil
     end
 
   end
