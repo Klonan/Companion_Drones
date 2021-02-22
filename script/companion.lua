@@ -1710,9 +1710,14 @@ lib.on_configuration_changed = function()
   end
 
   for k, companion in pairs (script_data.companions) do
-    companion.speed = companion.speed or 0
-    companion:clear_passengers()
-    companion.entity.minable = true
+    if (companion.player and companion.player.valid) then
+      companion.speed = companion.speed or 0
+      companion:clear_passengers()
+      companion.entity.minable = true
+    else
+      companion.entity.destroy()
+      script_data.companions[k] = nil
+    end
   end
 
   if script_data.tick_updates then
