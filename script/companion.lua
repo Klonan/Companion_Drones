@@ -4,6 +4,7 @@ local companion_update_interval = 17
 local base_speed = 0.25
 local build_speed = 0.30
 local sticker_life = 100
+local max_distance = 250  -- The maximum distance at which the drones "detect" jobs
 
 local script_data =
 {
@@ -1202,7 +1203,7 @@ local process_specific_job_queue = function(player_index, player_data)
   --free_companion:say(i)
   --free_companion.entity.surface.create_entity{name = "flying-text", position = area[1], text = i}
   --free_companion.entity.surface.create_entity{name = "flying-text", position = area[2], text = i}
-  if free_companion:distance(area[1]) < 250 then
+  if free_companion:distance(area[1]) < max_distance then
     free_companion:try_to_find_work(area)
   end
 
@@ -1532,16 +1533,20 @@ end
 
 local dissect_area_size = 32
 
-local dissect_and_queue_area = function(player_index, area)
+local dissect_and_queue_area = function(player_index, player_pos, area)
   local player_queue = script_data.specific_job_search_queue[player_index]
   if not player_queue then
     player_queue = {}
     script_data.specific_job_search_queue[player_index] = player_queue
   end
+  local xmin = math.max(player_pos.x - max_distance, area.left_top.x)
+  local xmax = math.min(player_pos.x + max_distance, area.right_bottom.y)
+  local ymin = math.max(player_pos.y - max_distance, area.left_top.y)
+  local ymax = math.min(player_pos.y + max_distance, area.right_bottom.y)
 
   local count = #player_queue
-  for x = area.left_top.x, area.right_bottom.x, dissect_area_size do
-    for y = area.left_top.y, area.right_bottom.y, dissect_area_size do
+  for x = xmin, xmax, dissect_area_size do
+    for y = ymin, ymax, dissect_area_size do
       table.insert(player_queue, (count > 0 and math.random(count)) or 1, {{x, y}, {x + dissect_area_size, y + dissect_area_size}})
       count = count + 1
     end
@@ -1556,7 +1561,7 @@ local on_player_deconstructed_area = function(event)
     return
   end
 
-  dissect_and_queue_area(event.player_index, event.area)
+  dissect_and_queue_area(event.player_index, player.position, event.area)
 
 end
 
@@ -1602,7 +1607,7 @@ local on_pre_build = function(event)
   -- I am lazy, not going to bother with rotations and flips...
 
   local area = get_blueprint_area(player, event.position)
-  dissect_and_queue_area(event.player_index, area)
+  dissect_and_queue_area(event.player_index, player.position, area)
 
 
 end
