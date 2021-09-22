@@ -1518,6 +1518,10 @@ local recall_constructing_robots = function(player)
   end
 end
 
+local clear_specific_job_search_queue = function(player)
+  script_data.specific_job_search_queue[player.index] = nil
+end
+
 local on_lua_shortcut = function(event)
   local player = game.get_player(event.player_index)
   local name = event.prototype_name
@@ -1528,6 +1532,7 @@ local on_lua_shortcut = function(event)
   if name == "companion-construction-toggle" then
     player.set_shortcut_toggled(name, not player.is_shortcut_toggled(name))
     recall_constructing_robots(player)
+    clear_specific_job_search_queue(player)
   end
 end
 
