@@ -1,3 +1,5 @@
+local util = require("__core__/lualib/util")
+
 local bot = util.copy(data.raw["construction-robot"]["construction-robot"])
 bot.name = "companion-construction-robot"
 bot.localised_name = "Companion construction laser bank. (DO NOT TOUCH)"

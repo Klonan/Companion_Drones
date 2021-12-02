@@ -3,6 +3,7 @@ Version: 1.0.22
 Date: 2021-12-02
   Changes:
     - QoL and reactivity improvements related to the job searching queue, submitted by madmaxoft.
+    - Fix crash when loading with Alien biomes installed.
 ---------------------------------------------------------------------------------------------------
 Version: 1.0.21
 Date: 2021-02-22
