@@ -7,6 +7,9 @@ local sticker_life = 100
 local max_distance = 250  -- The maximum distance at which the drones "detect" jobs
 
 local companion_entity_names = settings.startup["companion-entity-names"].value
+if not string.find(companion_entity_names, "companion") then
+  companion_entity_names = "companion ".. companion_entity_names
+end
 
 local script_data =
 {
