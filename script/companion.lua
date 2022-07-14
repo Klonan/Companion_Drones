@@ -6,6 +6,8 @@ local build_speed = 0.30
 local sticker_life = 100
 local max_distance = 250  -- The maximum distance at which the drones "detect" jobs
 
+local companion_entity_names = settings.startup["companion-entity-names"].value
+
 local script_data =
 {
   companions = {},
@@ -1076,7 +1078,7 @@ local on_built_entity = function(event)
   local entity = event.created_entity
   if not (entity and entity.valid) then return end
 
-  if entity.name ~= "companion" then
+  if not string.find(entity.name, companion_entity_names) then
     return
   end
 
@@ -1455,7 +1457,7 @@ local on_player_driving_changed_state = function(event)
   if not (player and player.valid) then return end
   if not player.vehicle then return end
 
-  if player.vehicle.name == "companion" then
+  if string.find(player.vehicle.name, companion_entity_names) then
     player.driving = false
   end
 

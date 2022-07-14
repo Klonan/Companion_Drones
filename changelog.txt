@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.23
+Date: 2022-07-17
+  Changes:
+    - Added hidden settings companion-entity-names that can contain names of companion entities and can be updated by other mods
+    - Changed companion logic to work with all entities specified in companion-entity-names
+---------------------------------------------------------------------------------------------------
 Version: 1.0.22
 Date: 2021-12-02
   Changes:
