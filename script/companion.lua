@@ -62,14 +62,6 @@ local get_companion = function(unit_number)
   return companion
 end
 
-local distance = function(position_1, position_2)
-  local x1 = position_1[1] or position_1.x
-  local y1 = position_1[2] or position_1.y
-  local x2 = position_2[1] or position_2.x
-  local y2 = position_2[2] or position_2.y
-  return (((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1))) ^ 0.5
-end
-
 local name = "secret_companion_surface_please_dont_touch"
 local get_secret_surface = function()
   local surface = game.surfaces[name]
@@ -620,6 +612,10 @@ function Companion:return_to_player()
 
   if not self.player.valid then return end
 
+  if self.player.surface ~= self.entity.surface then
+    return
+  end
+
   self.moving_to_destination = nil
   local distance = self:distance(self.player.position)
 
@@ -1093,7 +1089,6 @@ local on_entity_destroyed = function(event)
 end
 
 local search_offsets = {}
-local search_refresh = nil
 local search_distance = 100
 local search_divisions = 7
 
@@ -1115,8 +1110,6 @@ local setup_search_offsets = function()
     local i = (((k * 87)) % #search_offsets) + 1
     search_offsets[k], search_offsets[i] = search_offsets[i], search_offsets[k]
   end
-
-  search_refresh = #search_offsets
 end
 setup_search_offsets()
 

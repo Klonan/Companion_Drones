@@ -2,7 +2,7 @@ local beam_blend_mode = "additive"
 local beam_non_light_flags = { "trilinear-filtering" }
 local path = "__Companion_Drones__/data/grey_beams/"
 
-function attach_beam_graphics(beam_table, blend_mode, beam_flags, beam_tint, light_tint)
+local function attach_beam_graphics(beam_table, blend_mode, beam_flags, beam_tint, light_tint)
   beam_table.start =
   {
     filename = path.."tileable-beam-START-wtf.png",
