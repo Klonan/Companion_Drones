@@ -1,5 +1,5 @@
 local util = require("util")
-local follow_range = 120
+local follow_range = 12
 local companion_update_interval = 17
 local base_speed = 0.25
 local build_speed = 0.30
@@ -218,7 +218,6 @@ function Companion:set_robot_stack()
 
 end
 
-
 function Companion:clear_robot_stack()
   local inventory = self:get_inventory()
   if not inventory.set_filter(21,"companion-construction-robot") then
@@ -289,9 +288,6 @@ function Companion:get_distance_boost(position)
 end
 
 function Companion:set_speed(speed)
-  if self.entity.stickers then
-    --self:say(#self.entity.stickers)
-  end
   if speed == self.speed then return end
   self.speed = speed
   --self:say(speed)
@@ -369,6 +365,7 @@ function Companion:robot_spawned(robot)
     force = self.entity.force,
     source_offset = {0, 0}
   }
+  self:move_to_robot_average()
 end
 
 function Companion:clear_robots()
@@ -440,6 +437,7 @@ end
 function Companion:search_for_nearby_work()
   if not self:player_wants_construction() then return end
   if not self.can_construct then return end
+  if self.entity.surface ~= self.player.surface then return end
   local cell = self.entity.logistic_cell
   if not cell then return end
   local range = cell.construction_radius + 16
@@ -451,6 +449,7 @@ end
 function Companion:search_for_nearby_targets()
   if not self:player_wants_attack() then return end
   if not self.can_attack then return end
+  if self.entity.surface ~= self.player.surface then return end
   local range = 32
   local origin = self.entity.position
   local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
@@ -463,11 +462,9 @@ function Companion:is_busy()
 end
 
 function Companion:update()
-
   if self.flagged_for_equipment_changed then
     self:check_equipment()
   end
-
 
   local was_busy = self.is_busy_for_construction
   local was_in_combat = self.is_in_combat
@@ -641,8 +638,6 @@ function Companion:return_to_player()
   end
 
   self.entity.autopilot_destination = self.player.position
-
-
 end
 
 function Companion:on_spider_command_completed()
@@ -654,23 +649,22 @@ function Companion:on_spider_command_completed()
 end
 
 function Companion:take_item(item, target)
-  local inventory = self:get_inventory()
+  local target_inventory = target.get_main_inventory() or target.get_output_inventory()
+  if not target_inventory then return end
 
-  local to_take_count
-
-  local target_count = target.get_item_count(item.name)
-  local stack_size = game.item_prototypes[item.name].stack_size
-
-  if target_count <= (stack_size * 2) then
-    to_take_count = math.min(target_count, math.ceil(stack_size / 2))
-  else
-    to_take_count = math.min(target_count, stack_size)
+  while true do
+    local stack = target_inventory.find_item_stack(item.name)
+    if not stack then break end
+    local given = self.entity.insert(stack)
+    if given == 0 then break end
+    if given == stack.count then
+      stack.clear()
+    else
+      stack.count = stack.count - given
+    end
+    item.count = item.count - given
+    if item.count <= 0 then break end
   end
-
-  target_count = math.max(item.count, target_count)
-  local removed = target.remove_item({name = item.name, count = to_take_count})
-  if removed == 0 then return end
-  self.entity.insert({name = item.name, count = removed})
 
   self.entity.surface.create_entity
   {
@@ -680,46 +674,20 @@ function Companion:take_item(item, target)
     target_position = target.position,
     force = self.entity.force,
     position = self.entity.position,
-    duration = math.min(math.max(math.ceil(removed / 5), 10), 60),
+    duration = 30,
     max_length = follow_range + 4
   }
 
-  return removed >= item.count
+  return item.count <= 0
 end
 
 function Companion:take_item_from_train(item, train)
-  local inventory = self:get_inventory()
-
-  local to_take_count
-
-  local target_count = train.get_item_count(item.name)
-  local stack_size = game.item_prototypes[item.name].stack_size
-
-  if target_count <= (stack_size * 2) then
-    to_take_count = math.min(target_count, math.ceil(stack_size / 2))
-  else
-    to_take_count = math.min(target_count, stack_size)
+  for k, wagon in pairs(train.cargo_wagons) do
+    if self:take_item(item, wagon) then
+      return true
+    end
   end
-
-  target_count = math.max(item.count, target_count)
-  local removed = train.remove_item({name = item.name, count = to_take_count})
-  if removed == 0 then return end
-
-  self.entity.insert({name = item.name, count = removed})
-
-  self.entity.surface.create_entity
-  {
-    name = "inserter-beam",
-    source = self.entity,
-    target = self.player.character,
-    target_position = self.player.position,
-    force = self.entity.force,
-    position = self.entity.position,
-    duration = math.min(math.max(math.ceil(removed / 5), 10), 60),
-    max_length = follow_range + 4
-  }
-
-  return removed >= item.count
+  return false
 end
 
 
@@ -821,25 +789,25 @@ local item_request_types =
 
 }
 
-local entities_with_force_type = {"unit", "character", "turret", "ammo-turret", "electric-turret", "fluid-turret", "radar", "unit-spawner", "spider-vehicle", "artillery-turret"}
 function Companion:try_to_find_targets(search_area)
 
   local entities = self.entity.surface.find_entities_filtered
   {
     area = search_area,
-    type = entities_with_force_type
+    is_military_target = true
   }
 
   local our_force = self.entity.force
   for k, entity in pairs (entities) do
     if not entity.valid then break end
-    local force = entity.force
-    if not (force == our_force or force.name == "neutral" or our_force.get_cease_fire(entity.force)) then
-      self:set_attack_destination(entity.position)
-      return
+    if entity.destructible then
+      local force = entity.force
+      if not (force == our_force or force.name == "neutral" or our_force.get_cease_fire(entity.force)) then
+        self:set_attack_destination(entity.position)
+        return
+      end
     end
   end
-
 
 end
 
@@ -876,10 +844,9 @@ function Companion:try_to_find_work(search_area)
 
   local force = self.entity.force
   local entities = self.entity.surface.find_entities_filtered{area = search_area, force = force}
-  local neutral
 
   local current_items = self:get_inventory().get_contents()
-  local can_take_from_player = self:distance(self.player.position) <= follow_range
+  local can_take_from_player = self:distance(self.player.position) <= follow_range and self.entity.surface == self.player.surface
 
   local has_or_can_take = function(item)
     if current_items[item.name] or 0 >= item.count then
@@ -1039,7 +1006,6 @@ function Companion:teleport(position, surface)
 
   self.entity.teleport(position, surface)
   self:set_active()
-  self:return_to_player()
 end
 
 function Companion:change_force(force)
@@ -1125,7 +1091,6 @@ end
 local perform_job_search = function(player, player_data)
 
   if not player.is_shortcut_toggled("companion-construction-toggle") then return end
-
   local free_companion = get_free_companion_for_construction(player_data)
   if not free_companion then return end
 
@@ -1205,7 +1170,6 @@ end
 
 local job_mod = 5
 local check_job_search = function(event)
-
   if not next(script_data.player_data) then return end
 
   local job_search_queue = script_data.specific_job_search_queue
@@ -1563,7 +1527,6 @@ local on_player_deconstructed_area = function(event)
 end
 
 local get_blueprint_area = function(player, offset)
-
 
   local entities = player.get_blueprint_entities()
 
