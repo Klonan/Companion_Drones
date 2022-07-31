@@ -1,5 +1,5 @@
 local util = require("util")
-local follow_range = 12
+local follow_range = 120
 local companion_update_interval = 17
 local base_speed = 0.25
 local build_speed = 0.30
@@ -453,7 +453,6 @@ function Companion:search_for_nearby_work()
   local range = cell.construction_radius + 16
   local origin = self.entity.position
   local area = {{origin.x - range, origin.y - range}, {origin.x + range, origin.y + range}}
-  --self:say("NICE")
   self:try_to_find_work(area)
 end
 
