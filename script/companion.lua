@@ -23,7 +23,7 @@ local get_repair_tools = function()
   repair_tools = {}
   for k, item in pairs (game.item_prototypes) do
     if item.type == "repair-tool" then
-      repair_tools[item.name] = {name = item.name, count = 1}
+      repair_tools[item.name] = true
     end
   end
   return repair_tools
@@ -932,8 +932,8 @@ function Companion:try_to_find_work(search_area)
 
     if not repair_attempted and entity.is_registered_for_repair() then
       repair_attempted = true
-      for k, item in pairs (get_repair_tools()) do
-        if has_or_can_take(item) then
+      for name, bool in pairs (get_repair_tools()) do
+        if has_or_can_take({name = name, count = 1}) then
           if not self.moving_to_destination then
             self:set_job_destination(entity.position)
           end
@@ -1019,18 +1019,6 @@ function Companion:change_force(force)
 
   self:check_equipment()
 
-end
-
-local get_opened_companion = function(player_index)
-  local player = game.get_player(player_index)
-  if not player then return end
-
-  if player.opened_gui_type ~= defines.gui_type.entity then return end
-
-  local opened = player.opened
-  if not (opened and opened.valid) then return end
-
-  return get_companion(opened.unit_number)
 end
 
 local on_built_entity = function(event)
