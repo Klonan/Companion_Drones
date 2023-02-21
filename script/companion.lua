@@ -417,7 +417,7 @@ function Companion:try_to_refuel()
 
   if self:distance(self.player.position) <= follow_range then
     for k, item in pairs (get_fuel_items()) do
-      if self:find_and_take_from_player(item) then
+      if self:find_and_take_from_player({name = item.name, count = item.count}) then
         return
       end
     end
