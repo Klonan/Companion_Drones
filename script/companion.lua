@@ -1326,7 +1326,12 @@ local on_player_changed_surface = function(event)
   if not player.character then
     --For the space exploration satellite viewer thing...
     --If there is no character, lets just not go with the player.
-    return
+    if remote.interfaces["space-exploration"] and
+       remote.interfaces["space-exploration"]["remote_view_is_active"] and
+       remote.call("space-exploration", "remote_view_is_active", {player=player})
+    then
+      return
+    end
   end
   local surface = player.surface
   local position = player.position
